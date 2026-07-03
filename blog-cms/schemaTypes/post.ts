@@ -16,7 +16,7 @@ export const postType = defineType({
             title: "slug",
             type: "slug",
             options: {
-                source: "name",
+                source: "title",
             },
             validation: (Rule) => Rule.required(),
         }),
