@@ -1,5 +1,6 @@
 import { Post } from "../types/post";
-
+import Image from "next/image";
+import { urlFor } from "@/lib/image";
 interface PostCardProps {
     post: Post;
 }
@@ -13,6 +14,14 @@ export default function PostCard({ post }: PostCardProps) {
                 marginBottom: "20px",
             }}
         >
+            {post.featuredImage && (
+                <Image
+                    src={urlFor(post.featuredImage).width(600).height(350).url()}
+                    alt={post.title}
+                    width={600}
+                    height={350}
+                />
+            )}
             <h2>{post.title}</h2>
 
             <p>{post.excerpt}</p>

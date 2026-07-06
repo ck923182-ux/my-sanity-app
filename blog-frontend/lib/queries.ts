@@ -5,11 +5,7 @@ export const POSTS_QUERY = `
   slug,
   excerpt,
 
-  featuredImage{
-    asset->{
-      url
-    }
-  },
+  featuredImage,
 
   author->{
     name

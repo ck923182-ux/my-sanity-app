@@ -7,11 +7,13 @@ export interface Post {
 
   excerpt: string;
 
-  featuredImage?: {
-    asset: {
-      url: string;
-    };
-  };
+  // featuredImage?: {
+  //   asset: {
+  //     url: string;
+  //   };
+  // };
+    featuredImage: any;
+
 
   author: {
     name: string;

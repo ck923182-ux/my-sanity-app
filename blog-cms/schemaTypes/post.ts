@@ -36,6 +36,9 @@ export const postType = defineType({
             name: "featuredImage",
             title: "Featured Image",
             type: "image",
+            options: {
+                hotspot: true,
+            },
             validation: (Rule) => Rule.required(),
         }),
         defineField({
