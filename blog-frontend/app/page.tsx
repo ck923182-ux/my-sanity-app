@@ -8,7 +8,6 @@ import Footer from "./components/Footer";
 import Hero from "./components/Hero";
 import PostCard from "./components/PostCard";
 
-
 export default async function HomePage() {
   const posts: Post[] = await client.fetch(POSTS_QUERY);
 
@@ -31,6 +30,7 @@ export default async function HomePage() {
             post={post}
           />
         ))}
+        
       </main>
 
       <Footer />

@@ -30,13 +30,16 @@ export default function PostCard({ post }: PostCardProps) {
             <p>{post.excerpt}</p>
 
             <p>
-                <strong>Author:</strong> {post.author.name}
+                <strong>Author:</strong>
+                <Link href={`/author/${post.author.slug.current}`}>
+                    {post.author.name}
+                </Link>
             </p>
 
-            <p>
-                <strong>Category:</strong> {post.category.title}
-            </p>
-
+            <strong>Category :</strong>
+            <Link href={`/category/${post.category.slug.current}`}>
+                {post.category.title}
+            </Link>
             <p>
                 <strong>Published:</strong>{" "}
                 {new Date(post.publishedAt).toLocaleDateString()}
