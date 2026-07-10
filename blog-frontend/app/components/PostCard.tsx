@@ -4,46 +4,54 @@ import { urlFor } from "@/lib/image";
 import Link from "next/link";
 
 interface PostCardProps {
-    post: Post;
+  post: Post;
 }
+
 export default function PostCard({ post }: PostCardProps) {
+  return (
+    <article className="group overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition duration-300 hover:-translate-y-1 hover:shadow-lg">
+      <div className="relative aspect-[16/9] overflow-hidden bg-slate-100">
+        {post.featuredImage ? (
+          <Image
+            src={urlFor(post.featuredImage).width(800).height(500).url()}
+            alt={post.title}
+            width={800}
+            height={500}
+            className="h-full w-full object-cover transition duration-500 group-hover:scale-105"
+          />
+        ) : (
+          <div className="flex h-full items-center justify-center text-sm text-slate-500">
+            No image available
+          </div>
+        )}
+      </div>
 
-    return (
-        <article
-            style={{
-                border: "1px solid #ddd",
-                padding: "20px",
-                marginBottom: "20px",
-            }}
-        >
-            {post.featuredImage && (
-                <Image
-                    src={urlFor(post.featuredImage).width(600).height(350).url()}
-                    alt={post.title}
-                    width={600}
-                    height={350}
-                />
-            )}
-            <Link href={`/blog/${post.slug.current}`}>
-                <h2>{post.title}</h2>
-            </Link>
-            <p>{post.excerpt}</p>
+      <div className="p-6">
+        <div className="mb-3 flex flex-wrap items-center gap-2 text-sm text-slate-500">
+          <Link href={`/category/${post.category.slug.current}`} className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
+            {post.category.title}
+          </Link>
+          <span>•</span>
+          <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
+        </div>
 
-            <p>
-                <strong>Author:</strong>
-                <Link href={`/author/${post.author.slug.current}`}>
-                    {post.author.name}
-                </Link>
-            </p>
+        <Link href={`/blog/${post.slug.current}`}>
+          <h2 className="text-xl font-semibold text-slate-900 transition group-hover:text-slate-700">
+            {post.title}
+          </h2>
+        </Link>
 
-            <strong>Category :</strong>
-            <Link href={`/category/${post.category.slug.current}`}>
-                {post.category.title}
-            </Link>
-            <p>
-                <strong>Published:</strong>{" "}
-                {new Date(post.publishedAt).toLocaleDateString()}
-            </p>
-        </article>
-    );
+        <p className="mt-3 text-sm leading-7 text-slate-600">{post.excerpt}</p>
+
+        <div className="mt-5 flex flex-wrap items-center justify-between gap-3">
+          <Link href={`/author/${post.author.slug.current}`} className="text-sm font-medium text-slate-700">
+            By {post.author.name}
+          </Link>
+          <Link href={`/blog/${post.slug.current}`} className="text-sm font-semibold text-slate-900">
+            Read more →
+          </Link>
+        </div>
+      </div>
+    </article>
+  );
 }

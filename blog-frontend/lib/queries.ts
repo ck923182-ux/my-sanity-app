@@ -193,6 +193,22 @@ count(*[_type=="post"])
 
 
 
+export const AUTHORS_QUERY = `
+*[_type == "author"] | order(name asc){
+  _id,
+  name,
+  slug{
+    current
+  },
+  "postCount": count(
+    *[
+      _type == "post" &&
+      author._ref == ^._id
+    ]
+  )
+}
+`;
+
 export const CATEGORIES_QUERY = `
 *[_type == "category"] | order(title asc){
   _id,
@@ -208,5 +224,12 @@ export const CATEGORIES_QUERY = `
       category._ref == ^._id
     ]
   )
+}
+`;
+
+export const SITEMAP_POSTS_QUERY = `
+*[_type == "post"]{
+  slug,
+  _updatedAt
 }
 `;
