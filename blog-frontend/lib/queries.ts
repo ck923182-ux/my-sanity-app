@@ -26,7 +26,9 @@ export const SINGLE_POST_QUERY = `
 *[_type=="post" && slug.current==$slug][0]{
   _id,
   title,
-  slug,
+  slug{
+  current
+  },
   excerpt,
 
   featuredImage,
@@ -39,6 +41,7 @@ export const SINGLE_POST_QUERY = `
   },
 
   category->{
+  _id,
   title,
   slug{
     current
@@ -50,6 +53,38 @@ export const SINGLE_POST_QUERY = `
 }
 `;
 
+// related post display in single blog post 
+export const RELATED_POSTS_QUERY = `
+*[_type =="post" && category._ref==$categoryId && slug.current != $slug ] | order(publishedAt desc)[0...3]
+{
+ _id,
+  title,
+  slug,
+  excerpt,
+
+  featuredImage,
+
+  author->{
+    name,
+    slug{
+      current
+    }
+  },
+
+  category->{
+    title,
+    slug{
+      current
+    }
+  },
+
+  publishedAt
+}`;
+
+
+
+
+// Display post by category this is category page 
 export const CATEGORY_POSTS_QUERY = `
 *[
   _type=="post" &&
@@ -82,7 +117,7 @@ export const CATEGORY_POSTS_QUERY = `
 }
 `;
 
-
+// Display the author page , author by psot 
 export const AUTHOR_POSTS_QUERY = `
 *[
   _type=="post" &&
@@ -115,6 +150,7 @@ export const AUTHOR_POSTS_QUERY = `
 }
 `;
 
+// Search post
 export const SEARCH_POSTS_QUERY = `
 *[
   _type == "post" &&
@@ -149,6 +185,28 @@ export const SEARCH_POSTS_QUERY = `
 }
 `;
 
-export const POSTS_COUNT_QUERY  = `
+// use to count the total post 
+export const POSTS_COUNT_QUERY = `
 count(*[_type=="post"])
+`;
+
+
+
+
+export const CATEGORIES_QUERY = `
+*[_type == "category"] | order(title asc){
+  _id,
+  title,
+
+  slug{
+    current
+  },
+
+  "postCount": count(
+    *[
+      _type == "post" &&
+      category._ref == ^._id
+    ]
+  )
+}
 `;

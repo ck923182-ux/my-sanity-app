@@ -1,5 +1,5 @@
 import { client } from "@/lib/sanity";
-import { POSTS_QUERY, POSTS_COUNT_QUERY } from "@/lib/queries";
+import { POSTS_QUERY, POSTS_COUNT_QUERY, CATEGORIES_QUERY } from "@/lib/queries";
 import { Post } from "./types/post";
 
 import Link from "next/link";
@@ -9,6 +9,7 @@ import Hero from "./components/Hero";
 import PostCard from "./components/PostCard";
 import { promises } from "dns";
 import { match } from "assert";
+import CategorySidebar from "./components/CategorySidebar";
 
 
 interface HomapageProps {
@@ -30,7 +31,10 @@ export default async function HomePage({ searchParams }: HomapageProps) {
   });
 
   const totalPost = await client.fetch(POSTS_COUNT_QUERY);
-  const  totalPages = Math.ceil(totalPost / POST_PER_PAGE);
+  const totalPages = Math.ceil(totalPost / POST_PER_PAGE);
+
+  const categories = await client.fetch(CATEGORIES_QUERY);
+  console.table(categories);
 
   return (
 
@@ -41,42 +45,54 @@ export default async function HomePage({ searchParams }: HomapageProps) {
 
       <main
         style={{
-          maxWidth: "900px",
+          maxWidth: "1200px",
           margin: "40px auto",
+          display: "flex",
+          gap: "40px",
         }}
       >
-        {posts.map((post) => (
-          <PostCard
-            key={post._id}
-            post={post}
-          />
-        ))}
-        <div
-          style={{
-            display: "flex",
-            justifyContent: "space-between",
-            marginTop: "40px",
-          }}
-        >
-          {currentPage > 1 ? (
-            <Link href={`/?page=${currentPage - 1}`}>
-              ← Previous
-            </Link>
-          ) : (
-            <span />
-          )}
+        {/* Left Side - Posts */}
+        <div style={{ flex: 3 }}>
+          {posts.map((post) => (
+            <PostCard
+              key={post._id}
+              post={post}
+            />
+          ))}
 
-          <span>
-            Page {currentPage} of {totalPages}
-          </span>
+          {/* Pagination */}
+          <div
+            style={{
+              display: "flex",
+              justifyContent: "space-between",
+              marginTop: "40px",
+            }}
+          >
+            {currentPage > 1 ? (
+              <Link href={`/?page=${currentPage - 1}`}>
+                ← Previous
+              </Link>
+            ) : (
+              <span />
+            )}
 
-          {currentPage < totalPages ? (
-            <Link href={`/?page=${currentPage + 1}`}>
-              Next →
-            </Link>
-          ) : (
-            <span />
-          )} 
+            <span>
+              Page {currentPage} of {totalPages}
+            </span>
+
+            {currentPage < totalPages ? (
+              <Link href={`/?page=${currentPage + 1}`}>
+                Next →
+              </Link>
+            ) : (
+              <span />
+            )}
+          </div>
+        </div>
+
+        {/* Right Side - Sidebar */}
+        <div style={{ flex: 1 }}>
+          <CategorySidebar categories={categories} />
         </div>
       </main>
 
