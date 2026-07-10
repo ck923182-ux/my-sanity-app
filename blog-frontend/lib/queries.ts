@@ -1,5 +1,5 @@
 export const POSTS_QUERY = `
-*[_type == "post"] | order(publishedAt desc){
+*[_type == "post"] | order(publishedAt desc)[$start...$end]{
   _id,
   title,
   slug,
@@ -147,4 +147,8 @@ export const SEARCH_POSTS_QUERY = `
   publishedAt,
   featured
 }
+`;
+
+export const POSTS_COUNT_QUERY  = `
+count(*[_type=="post"])
 `;
