@@ -11,7 +11,7 @@ export default async function Hero() {
   const homePage: HomePage = await client.fetch(HOME_PAGE_QUERY);
   const { hero, features } = homePage;
 
-  return (
+  return (  
     <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 px-4 py-16 text-white sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
