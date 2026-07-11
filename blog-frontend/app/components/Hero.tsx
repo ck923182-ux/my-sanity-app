@@ -1,26 +1,44 @@
 import Link from "next/link";
+import { HOME_PAGE_QUERY } from "@/lib/queries";
+import { HomePage } from "../types/home";
+import { client } from "@/lib/sanity";
 
-export default function Hero() {
+
+
+
+
+export default async function Hero() {
+  const homePage: HomePage = await client.fetch(HOME_PAGE_QUERY);
+  const { hero, features } = homePage;
+
   return (
     <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 px-4 py-16 text-white sm:px-6 lg:px-8">
       <div className="mx-auto flex max-w-7xl flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
           <p className="mb-4 inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-medium">
-            Latest stories from the modern web
+            {hero.subheading}
           </p>
           <h2 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            Build smarter ideas with content that connects.
+            {hero.heading}
           </h2>
           <p className="mt-4 text-lg leading-8 text-slate-300">
-            Discover thoughtful articles, practical tutorials, and fresh perspectives delivered in a polished reading experience.
+            {hero.content}
           </p>
+
           <div className="mt-8 flex flex-wrap gap-3">
-            <Link href="/search" className="rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100">
-              Search posts
-            </Link>
-            <Link href="/about" className="rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10">
-              Learn more
-            </Link>
+            {hero.heroButton.map((button) => (
+              <Link
+                key={button._key}
+                href={button.link}
+                className={
+                  button.variant === "primary"
+                    ? "rounded-full bg-white px-5 py-3 text-sm font-semibold text-slate-900 transition hover:bg-slate-100"
+                    : "rounded-full border border-white/20 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/10"
+                }
+              >
+                {button.text}
+              </Link>
+            ))}
           </div>
         </div>
 

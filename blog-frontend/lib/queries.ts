@@ -233,3 +233,19 @@ export const SITEMAP_POSTS_QUERY = `
   _updatedAt
 }
 `;
+
+// Homae page hero object fetch 
+
+export const HOME_PAGE_QUERY = `
+*[_type=="homepgae"][0]{
+  hero{
+   heading,
+   subheading,
+   heroButton,
+  },
+  features[]{
+   icon,
+   description
+  }
+}
+`
