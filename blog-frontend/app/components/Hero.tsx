@@ -10,6 +10,7 @@ import { client } from "@/lib/sanity";
 export default async function Hero() {
   const homePage: HomePage = await client.fetch(HOME_PAGE_QUERY);
   const { hero, features } = homePage;
+  console.log(hero);
 
   return (  
     <section className="bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 px-4 py-16 text-white sm:px-6 lg:px-8">

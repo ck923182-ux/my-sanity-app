@@ -43,6 +43,11 @@ export const authorType = defineType({
             name: "website",
             title: "Website",
             type: "url",
+        }),
+        defineField({
+            name:"hero",
+            title:"Hero Section",
+            type:"hero"
         })
     ]
 });

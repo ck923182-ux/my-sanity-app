@@ -4,6 +4,7 @@ import Link from "next/link";
 
 export default async function AuthorListingPage() {
   const authors = await client.fetch(AUTHORS_QUERY);
+  console.log(authors);
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">

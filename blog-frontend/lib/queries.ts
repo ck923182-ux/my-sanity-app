@@ -205,7 +205,13 @@ export const AUTHORS_QUERY = `
       _type == "post" &&
       author._ref == ^._id
     ]
-  )
+  ),
+  bio,
+  hero{
+   heading,
+   subheading,
+   heroButton,
+  },
 }
 `;
 
@@ -237,7 +243,7 @@ export const SITEMAP_POSTS_QUERY = `
 // Homae page hero object fetch 
 
 export const HOME_PAGE_QUERY = `
-*[_type=="homepgae"][0]{
+*[_type=="homePage"][0]{
   hero{
    heading,
    subheading,
