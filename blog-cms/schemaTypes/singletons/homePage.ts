@@ -11,16 +11,54 @@ export const homePageType = defineType({
             type: "hero"
         }),
         defineField({
-            name: "features",
-            title: "Features",
-            type: "array",
-            of: [
-                {
-                    type: "feature",
-                },
+            name: "welcomeblog",
+            title: "Welcome Blog",
+            type: "object",
+            fields: [
+                defineField({
+                    name: "eyebrow",
+                    title: "Eyebrow",
+                    type: "string",
+                }),
+                defineField({
+                    name: "heading",
+                    title: "Heading",
+                    type: "string",
+                }),
+                defineField({
+                    name: "description",
+                    title: "Description",
+                    type: "text",
+                    rows: 3
+                }),
+                defineField({
+                    name: "heroButton",
+                    title: "Button",
+                    type: "array",
+                    of: [
+                        {
+                            type: "button",
+                        },
+
+                    ],
+                }),
+                defineField({
+                    name: "featertitle",
+                    title: "Feature Title",
+                    type: "string",
+                }),
+                defineField({
+                    name: "homefeatures",
+                    title: "Home Features",
+                    type: "array",
+                    of: [
+                        {
+                            type: "feature"
+                        },
+                    ],
+                }),
             ],
         }),
-
     ],
     preview: {
         select: {

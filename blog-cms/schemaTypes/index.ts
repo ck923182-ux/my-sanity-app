@@ -5,6 +5,7 @@ import { homePageType } from "./singletons/homePage"
 import { heroType } from "./objects/hero"
 import { featureType } from "./objects/feature"
 import { buttonType } from "./objects/buttonType"
+import { aboutPageType } from "./singletons/aboutPage"
 
 export const schemaTypes = [
     categoryType,
@@ -13,6 +14,7 @@ export const schemaTypes = [
     heroType,
     homePageType,
     featureType,
-    buttonType
+    buttonType,
+    aboutPageType,
 
 ]

@@ -249,9 +249,49 @@ export const HOME_PAGE_QUERY = `
    subheading,
    heroButton,
   },
+  welcomeblog{
+  eyebrow,
+  heading,
+  description,
+  featertitle,
+  heroButton[]{
+  _key,
+  text,
+  link,
+  variant
+  },
+  homefeatures[]{
+  icon,
+  description
+  },
+  },
   features[]{
    icon,
    description
-  }
+  },
+}
+`
+
+export const ABOUT_PAGE_QUERY = `
+*[_type=="aboutpage"][0]{
+  aboutUs{
+  eyebrow,
+  heading,
+  content,
+  whatitOffers,
+  aboutoffers[]{
+  icon,
+  description,
+  },
+  builtWith,
+  buildWithUs[]{
+  icon,
+  description
+  },
+  },
+  features[]{
+   icon,
+   description
+  },
 }
 `
