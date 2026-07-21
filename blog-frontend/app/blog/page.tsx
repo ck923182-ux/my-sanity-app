@@ -19,6 +19,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   const end = start + POST_PER_PAGE;
 
   const posts = await client.fetch(POSTS_QUERY, { start, end });
+  console.log(posts);
   const totalPost = await client.fetch(POSTS_COUNT_QUERY);
   const totalPages = Math.ceil(totalPost / POST_PER_PAGE);
   const categories = await client.fetch(CATEGORIES_QUERY);
@@ -59,10 +60,13 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
               )}
             </div>
           </section>
+          
 
           <aside className="lg:sticky lg:top-24 lg:h-fit">
             <CategorySidebar categories={categories} />
           </aside>
+          
+          
         </div>
       </main>
     </>

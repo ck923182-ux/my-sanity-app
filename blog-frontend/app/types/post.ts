@@ -7,22 +7,28 @@ export interface Post {
 
   excerpt: string;
 
-    featuredImage: any;
+  featuredImage: any;
 
 
   author: {
     name: string;
-    slug:{
-      current:string;
+    slug: {
+      current: string;
     }
   };
 
   category: {
-  title: string;
-  slug: {
-    current: string;
+    title: string;
+    slug: {
+      current: string;
+    };
   };
-};
+  posttag: {
+    title: string;
+    slug: {
+      current: string;
+    };
+  }[];
 
   publishedAt: string;
 

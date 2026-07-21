@@ -31,6 +31,9 @@ export default function PostCard({ post }: PostCardProps) {
           <Link href={`/category/${post.category.slug.current}`} className="rounded-full bg-slate-100 px-3 py-1 font-medium text-slate-700">
             {post.category.title}
           </Link>
+          {(post.posttag ?? []).map((tag) => (
+            <span key={tag.slug.current}>{tag.title}</span>
+          ))}
           <span>•</span>
           <span>{new Date(post.publishedAt).toLocaleDateString()}</span>
         </div>

@@ -17,6 +17,12 @@ export const POSTS_QUERY = `
     current
     }
   },
+  posttag[]->{
+    title,
+    slug{
+    current
+    }
+  },
   publishedAt,
   featured
 }
