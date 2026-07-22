@@ -4,7 +4,7 @@ import { PortableText } from "@portabletext/react";
 import Image from "next/image";
 import { urlFor } from "@/lib/image";
 import PostCard from "@/app/components/PostCard";
-
+import PortableTextRenderer from "@/app/components/PortableText";
 interface Props {
   params: Promise<{
     slug: string;
@@ -61,7 +61,9 @@ export default async function BlogPage({ params }: Props) {
           </div>
 
           <div className="prose prose-slate mt-10 max-w-none prose-headings:text-slate-900 prose-a:text-slate-900">
-            <PortableText value={post.content} />
+            {/* <PortableText value={post.content} /> */}
+            <PortableTextRenderer value={post.content} />
+            
           </div>
         </article>
 
