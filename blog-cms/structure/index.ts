@@ -11,14 +11,14 @@
 
 //       S.divider(),
 
-//       S.listItem()
-//         .title('Home Page')
-//         .id('homePage')
-//         .child(
-//           S.document()
-//             .schemaType('homePage')
-//             .documentId('homePage')
-//         ),
+// S.listItem()
+//   .title('Home Page')
+//   .id('homePage')
+//   .child(
+//     S.document()
+//       .schemaType('homePage')
+//       .documentId('homePage')
+//   ),
 //       S.listItem()
 //         .title('About Page')
 //         .id('aboutpage')
@@ -29,13 +29,18 @@
 //         ),
 //     ])
 
-
 import {StructureResolver} from 'sanity/structure'
 
 export const structure: StructureResolver = (S) =>
   S.list()
     .title('Blog Site')
     .items([
+      //Theme Setting
+      S.listItem()
+        .title('Theme Setting')
+        .id('themesettings')
+        .child(S.document().schemaType('themesettings').documentId('themesettings')),
+      S.divider(),
       // Website
       S.listItem()
         .title('🌐 Website')
@@ -52,8 +57,6 @@ export const structure: StructureResolver = (S) =>
                 .child(S.document().schemaType('aboutpage').documentId('aboutpage')),
             ]),
         ),
-
-      S.divider(),
 
       // Blog
       S.listItem()
