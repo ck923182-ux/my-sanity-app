@@ -7,7 +7,7 @@ import {featureType} from './objects/feature'
 import {buttonType} from './objects/buttonType'
 import {aboutPageType} from './singletons/aboutPage'
 import {tagType} from './documents/tag'
-import {siteSetting} from './singletons/themeSetting'
+import {siteSetting} from './singletons/siteSetting'
 export const schemaTypes = [
   categoryType,
   authorType,

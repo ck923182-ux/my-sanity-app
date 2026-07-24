@@ -35,11 +35,11 @@ export const structure: StructureResolver = (S) =>
   S.list()
     .title('Blog Site')
     .items([
-      //Theme Setting
+      //Site Setting
       S.listItem()
-        .title('Theme Setting')
-        .id('themesettings')
-        .child(S.document().schemaType('themesettings').documentId('themesettings')),
+        .title('Site Setting')
+        .id('sitesettings')
+        .child(S.document().schemaType('sitesettings').documentId('sitesettings')),
       S.divider(),
       // Website
       S.listItem()

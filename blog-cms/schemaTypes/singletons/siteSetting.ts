@@ -1,8 +1,8 @@
 import {defineField, defineType} from 'sanity'
 
-export const themeSetting = defineType({
-  name: 'themesettings',
-  title: 'Theme Setting',
+export const siteSetting = defineType({
+  name: 'sitesettings',
+  title: 'Site Setting',
   type: 'document',
   fields: [
     defineField({
