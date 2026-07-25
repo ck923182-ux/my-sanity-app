@@ -33,39 +33,8 @@ export const SINGLE_POST_QUERY = `
   _id,
   title,
   slug{
-  current
-  },
-  excerpt,
-
-  featuredImage,
-
- author->{
-    name,
-    slug{
     current
-    }
   },
-
-  category->{
-  _id,
-  title,
-  slug{
-    current
-  }
-},
-
-  publishedAt,
-  content
-}
-`;
-
-// related post display in single blog post 
-export const RELATED_POSTS_QUERY = `
-*[_type =="post" && category._ref==$categoryId && slug.current != $slug ] | order(publishedAt desc)[0...3]
-{
- _id,
-  title,
-  slug,
   excerpt,
 
   featuredImage,
@@ -78,13 +47,59 @@ export const RELATED_POSTS_QUERY = `
   },
 
   category->{
+    _id,
     title,
     slug{
       current
     }
   },
 
-  publishedAt
+  publishedAt,
+
+  content[]{
+    ...,
+    _key,
+    _type,
+    markDefs[]{
+      ...,
+      _key
+    },
+    children[]{
+      ...,
+      _key
+    }
+  }
+}
+`;
+
+// related post display in single blog post 
+export const RELATED_POSTS_QUERY = `
+*[_type == "post" && category._ref == $categoryId && slug.current != $slug] | order(publishedAt desc)[0...3]{
+  _id,
+  title,
+  slug,
+  excerpt,
+  featuredImage,
+  author->{
+    name,
+    slug{
+      current
+    }
+  },
+  category->{
+    title,
+    slug{
+      current
+    }
+  },
+  posttag[]->{
+    title,
+    slug{
+      current
+    }
+  },
+  publishedAt,
+  featured
 }`;
 
 

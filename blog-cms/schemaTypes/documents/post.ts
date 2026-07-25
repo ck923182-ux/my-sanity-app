@@ -151,6 +151,16 @@ export const postType = defineType({
       title: 'seo Description',
       type: 'text',
     }),
+
+    // --- New: AI generation tracking ---
+    defineField({
+      name: 'aiGenerated',
+      title: 'AI Generated',
+      type: 'boolean',
+      initialValue: false,
+      description: 'True if this post was drafted by the AI content generator.',
+      readOnly: true,
+    }),
   ],
   preview: {
     select: {
