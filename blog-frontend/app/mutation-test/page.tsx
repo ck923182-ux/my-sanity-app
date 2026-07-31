@@ -1,6 +1,7 @@
 "use client";
 import { client } from "@/lib/sanity";
 import { createPost } from "./actions";
+import { updatePost } from "./actions";
 export default function MutationTestPage() {
 
   return (
@@ -13,6 +14,15 @@ export default function MutationTestPage() {
       >
         Create Post
       </button>
+     <button
+  onClick={async () => {
+    const result = await updatePost();
+    console.log(result);
+  }}
+  className="rounded bg-green-600 px-6 py-3 text-white"
+>
+  Update Post
+</button>
     </div>
   );
 }
