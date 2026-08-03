@@ -16,7 +16,7 @@ export function markdownToPortableText(markdown: string): PortableTextBlock[] {
   // that set falls back to "normal" to avoid Studio validation errors.
   const allowedStyles = new Set(["normal", "h2", "h3", "h4", "blockquote"]);
 
-  const blocks = markdownToBlocks(markdown) as PortableTextBlock[];
+const blocks = markdownToBlocks(markdown) as unknown as PortableTextBlock[];
 
   return blocks.map((block) => {
     if (block._type === "block" && !allowedStyles.has(block.style ?? "normal")) {
