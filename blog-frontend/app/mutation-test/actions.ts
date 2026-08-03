@@ -9,7 +9,6 @@ export async function createPost() {
   try {
     const result = await client.create({
       _type: "post",
-
       title: "My First Mutation Post",
 
       slug: {
@@ -41,7 +40,7 @@ export async function createPost() {
 export async function updatePost() {
   try {
     const result = await client
-      .patch("edgtDejVJGaG18AH3C77pg")
+      .patch("Goo4u87ddslAuTxQlXsGSm")
       .set({
         title: "Learning Sanity Mutations",
       })
@@ -54,4 +53,16 @@ export async function updatePost() {
     console.error(error);
     throw error;
   }
+}
+
+
+export async function deletePost() {
+  try {
+    const result = await client.delete("Goo4u87ddslAuTxQlXsGSm"); 
+    console.log("Deleted Document:", result);
+    return result;
+  }catch (error) {
+    console.error(error);
+    throw error;
+  } 
 }

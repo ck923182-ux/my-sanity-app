@@ -71,4 +71,8 @@ export const structure: StructureResolver = (S) =>
               S.documentTypeListItem('tag').title('Tags'),
             ]),
         ),
+
+      S.documentTypeListItem('form').title('Forms'),
+       
+        
     ])

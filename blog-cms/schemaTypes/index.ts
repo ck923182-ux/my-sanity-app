@@ -8,6 +8,7 @@ import {buttonType} from './objects/buttonType'
 import {aboutPageType} from './singletons/aboutPage'
 import {tagType} from './documents/tag'
 import {siteSetting} from './singletons/siteSetting'
+import {formtype} from './documents/forms'
 export const schemaTypes = [
   categoryType,
   authorType,
@@ -19,4 +20,6 @@ export const schemaTypes = [
   aboutPageType,
   tagType,
   siteSetting,
+  formtype,
+
 ]
