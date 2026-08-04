@@ -9,6 +9,7 @@ import {aboutPageType} from './singletons/aboutPage'
 import {tagType} from './documents/tag'
 import {siteSetting} from './singletons/siteSetting'
 import {formtype} from './documents/forms'
+import { newsypesform } from './documents/newsletters'
 export const schemaTypes = [
   categoryType,
   authorType,
@@ -21,5 +22,6 @@ export const schemaTypes = [
   tagType,
   siteSetting,
   formtype,
+  newsypesform,
 
 ]

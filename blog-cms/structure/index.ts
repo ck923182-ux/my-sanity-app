@@ -73,6 +73,7 @@ export const structure: StructureResolver = (S) =>
         ),
 
       S.documentTypeListItem('form').title('Forms'),
+      S.documentTypeListItem("newsletter").title("News Letter"),
        
         
     ])
