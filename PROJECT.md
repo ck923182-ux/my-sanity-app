@@ -304,3 +304,108 @@ This section tracks planned additions and enhancements.
 - [ ] **Storybook** — Isolated component development for `PostCard`, `CategorySidebar`, `Hero`
 - [ ] **E2E tests** — Add Playwright tests for key user flows (home → blog → single post, search)
 - [ ] **CI/CD pipeline** — GitHub Actions: lint + build check on PRs, deploy preview on Vercel
+
+
+
+# Sanity SVG Icon Picker Implementation Guide
+
+This guide documents how the plain-text/emoji input field for feature icons was migrated to an interactive SVG Icon Manager plugin within Sanity Studio, and rendered dynamically in the Next.js frontend using Iconify.
+
+---
+
+##  1. Sanity Studio Setup (Backend)
+
+### Step 1: Install the Plugin
+Due to breaking changes in modern versions of Sanity Studio (`v6.9.0+`), the `sanity-plugin-icon-manager` package was installed using the legacy peer dependencies flag to bypass strict version mismatches safely:
+
+```bash
+npm install sanity-plugin-icon-manager --legacy-peer-deps
+```
+
+### Step 2: Register the Plugin
+The plugin is registered inside `sanity.config.ts` by adding it directly to the standalone `plugins` array:
+
+```typescript
+import { defineConfig } from 'sanity'
+import { IconManager } from 'sanity-plugin-icon-manager'
+
+export default defineConfig({
+  // ... core configurations
+  plugins: [
+    structureTool({ structure }), 
+    IconManager({}), // Registered here as an independent plugin
+    visionTool(),
+  ],
+})
+```
+
+### Step 3: Update Schema Fields
+The field type in the `featureType` object schema was migrated from a plain `"string"` primitive type to the `"icon.manager"` visual configuration interface:
+
+```typescript
+defineField({
+    name: "icon",
+    title: "Icon",
+    type: "icon.manager", // Renders an interactive lookup picker grid
+})
+```
+
+---
+
+## 2. Next.js Frontend Integration
+
+### Step 1: Install Peer Dependency
+To dynamically render the JSON metadata payloads fetched from Sanity into clean SVG graphics, the React wrapper for Iconify was added to the web application project root:
+
+```bash
+npm install @iconify/react
+```
+
+### Step 2: Update TypeScript Definitions
+Because the plugin returns a nested data object rather than a standard text string primitive type, the `Feature` interface property type was updated to `any` inside your types file (e.g., `types/about.ts`):
+
+```typescript
+export interface Feature {
+    _key: string;
+    icon: any; // Updated from 'string' to handle nested JSON objects
+    description: string;
+}
+```
+
+### Step 3: Component Implementation & Dynamic Path Extraction
+Depending on the specific library provider chosen, the Sanity Icon Manager plugin might return values nested as `offer.icon.icon` or `offer.icon.name`. 
+
+The helper logic below normalizes these conditions to safely extract the string identifiers (e.g., `"lucide:star"`) and passes them down safely using optional chaining to avoid system runtime crashes:
+
+```tsx
+import { Icon } from "@iconify/react";
+
+// Inside your data mapping loops:
+{aboutUs?.aboutoffers?.map((offer, index) => {
+  // Safe extraction path fallback parser logic
+  const iconName = typeof offer?.icon?.icon === 'string' 
+    ? offer.icon.icon 
+    : offer?.icon?.icon?.name || offer?.icon?.name;
+
+  return (
+    <li key={index} className="flex items-center gap-2">
+      {iconName && (
+        <Icon
+          icon={iconName}
+          className="w-5 h-5 text-blue-500 flex-shrink-0"
+        />
+      )}
+      <span>{offer.description}</span>
+    </li>
+  );
+})}
+```
+
+---
+
+##  3. Usage Verification Workflow
+1. Navigate to your local studio interface layout dashboard running at `http://localhost:3333`.
+2. Access your designated **About Page** schema collection document blocks.
+3. Use the search input box inside the visual picker array field row items to pick a real SVG icon asset.
+4. Click **Publish** to commit state changes directly to the remote dataset storage.
+5. If the icons don't immediately appear on the frontend, clear the local Next.js cache by restarting the dev server (`npm run dev`).
