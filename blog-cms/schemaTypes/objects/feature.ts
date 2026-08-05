@@ -9,8 +9,7 @@ export const featureType = defineType({
         defineField({
             name: "icon",
             title: "Icon",
-            type: "string",
-            description: "Example: 🚀 ⭐ 🔒 💻",
+            type: "icon.manager",
         }),
         defineField({
             name: "description",

@@ -3,6 +3,8 @@ import { structureTool } from 'sanity/structure'
 import { visionTool } from '@sanity/vision'
 import { schemaTypes } from './schemaTypes'
 import { structure } from './structure'
+import { IconManager } from 'sanity-plugin-icon-manager' // 1. Update this import
+
 
 export default defineConfig({
   name: 'default',
@@ -14,7 +16,8 @@ export default defineConfig({
   plugins: [structureTool({
     structure,
   }),
-  visionTool()],
+    IconManager({}), 
+    visionTool()],
 
   schema: {
     types: schemaTypes,

@@ -17,6 +17,7 @@ export default async function Home() {
       <main className="mx-auto max-w-7xl px-4 py-12 sm:px-6 lg:px-8">
         <section className="grid gap-8 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm lg:grid-cols-[1.2fr_0.8fr] lg:p-10">
           <div>
+            
             <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
               {welcomeblog.eyebrow}
             </p>
