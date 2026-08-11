@@ -11,12 +11,25 @@ export async function POST(request: NextRequest) {
           success: false,
           message: "Unauthorized",
         },
-        { status: 401 }
+        { status: 401 },
       );
     }
 
-    revalidatePath("/");
-    revalidatePath("/blog");
+    const body = await request.json();
+
+    console.log("🔥 SANITY WEBHOOK PAYLOAD:");
+    console.log(JSON.stringify(body, null, 2));
+
+    if (body._type === "post") {
+      const slug = body.slug?.current;
+
+      revalidatePath("/");
+      revalidatePath("/blog");
+
+      if (slug) {
+        revalidatePath(`/blog/${slug}`);
+      }
+    }
 
     return NextResponse.json({
       success: true,
@@ -30,7 +43,7 @@ export async function POST(request: NextRequest) {
         success: false,
         message: "Revalidation failed",
       },
-      { status: 500 }
+      { status: 500 },
     );
   }
 }

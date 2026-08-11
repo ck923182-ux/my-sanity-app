@@ -9,7 +9,12 @@ import {aboutPageType} from './singletons/aboutPage'
 import {tagType} from './documents/tag'
 import {siteSetting} from './singletons/siteSetting'
 import {formtype} from './documents/forms'
-import { newsypesform } from './documents/newsletters'
+import {newsypesform} from './documents/newsletters'
+import {featureBlog} from './objects/featuredBlog'
+import {twoColoum} from './objects/twoColoumSection'
+import {topAuthor} from './objects/topAuthor'
+import {explorCategory} from './objects/explorCategory'
+import { headingComponent } from './components/headingComponent '
 export const schemaTypes = [
   categoryType,
   authorType,
@@ -23,5 +28,9 @@ export const schemaTypes = [
   siteSetting,
   formtype,
   newsypesform,
-
+  featureBlog,
+  twoColoum,
+  topAuthor,
+  explorCategory,
+  headingComponent
 ]

@@ -11,9 +11,14 @@ export const twoColoum = defineType({
       type: 'headingComponent',
     }),
     defineField({
-      name: 'content',
+      name: 'Content',
       title: 'Content',
-      type: 'block',
+      type: 'array',
+      of: [
+        {
+          type: 'block',
+        },
+      ],
     }),
     defineField({
       name: 'twocolumnbutton',

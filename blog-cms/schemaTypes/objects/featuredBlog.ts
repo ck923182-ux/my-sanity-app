@@ -18,7 +18,12 @@ export const featureBlog = defineType({
     defineField({
       name: 'Content',
       title: 'Content',
-      type: 'block',
+      type: 'array',
+      of: [
+        {
+          type: 'block',
+        },
+      ],
     }),
     defineField({
       name: 'featurebutton',

@@ -1,11 +1,6 @@
 import {defineArrayMember, defineField} from 'sanity'
 
-export const pageBuilderSectionTypes = [
-  'hero',
-//   'feature',
-//   'topauthor',
-//   'twocolumn',
-] as const
+export const pageBuilderSectionTypes = ['hero', 'feature', 'topauthor', 'twocolumn' , 'featurblog' ,'explorcategoey'] as const
 
 export const pageBuilderSections = pageBuilderSectionTypes.map((type) =>
   defineArrayMember({
