@@ -18,7 +18,16 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
   const start = (currentPage - 1) * POST_PER_PAGE;
   const end = start + POST_PER_PAGE;
 
-  const posts = await client.fetch(POSTS_QUERY, { start, end });
+  // const posts = await client.fetch(POSTS_QUERY, { start, end });
+  const posts = await client.fetch(
+  POSTS_QUERY,
+  { start, end },
+  {
+    next: {
+      revalidate: 60,
+    },
+  }
+);
   console.log(posts);
   const totalPost = await client.fetch(POSTS_COUNT_QUERY);
   const totalPages = Math.ceil(totalPost / POST_PER_PAGE);
