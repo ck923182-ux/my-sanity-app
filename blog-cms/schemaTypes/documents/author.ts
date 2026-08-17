@@ -47,7 +47,7 @@ export const authorType = defineType({
         defineField({
             name:"hero",
             title:"Hero Section",
-            type:"hero"
+            type:"heroSection"
         })
     ]
 });

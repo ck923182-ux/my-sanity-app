@@ -1,16 +1,11 @@
-import {defineField, defineType} from 'sanity'
-import {definePageBuilderField} from '../objects/pageBuilder'
+import { defineField, defineType } from 'sanity'
+import { definePageBuilderField } from '../objects/pageBuilder'
 
 export const homePageType = defineType({
   name: 'homePage',
   title: 'Home Page',
   type: 'document',
   fields: [
-    defineField({
-      name: 'hero',
-      title: 'Hero Section',
-      type: 'hero',
-    }),
     defineField({
       name: 'welcomeblog',
       title: 'Welcome Blog',
@@ -63,7 +58,7 @@ export const homePageType = defineType({
   ],
   preview: {
     select: {
-      title: 'hero.heading',
+      title: 'welcomeblog.heading',
       // subtitle: "hero.subHeading",
     },
   },

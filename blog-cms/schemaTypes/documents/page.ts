@@ -1,4 +1,5 @@
 import {defineField, defineType} from 'sanity'
+import {definePageBuilderField} from '../objects/pageBuilder'
 
 export const pageType = defineType({
   name: 'page',
@@ -23,10 +24,6 @@ export const pageType = defineType({
       validation: (Rule) => Rule.required(),
     }),
 
-    defineField({
-      name: 'pageBuilder',
-      title: 'Page Builder',
-      type: 'pageBuilder',
-    }),
+    definePageBuilderField(),
   ],
 })

@@ -15,6 +15,9 @@ import {twoColoum} from './objects/twoColoumSection'
 import {topAuthor} from './objects/topAuthor'
 import {explorCategory} from './objects/explorCategory'
 import { headingComponent } from './components/headingComponent '
+import { blogStatistics } from './objects/blogStatistics'
+import { timeLine } from './objects/timeLine'
+import { pageType } from './documents/page'
 export const schemaTypes = [
   categoryType,
   authorType,
@@ -32,5 +35,8 @@ export const schemaTypes = [
   twoColoum,
   topAuthor,
   explorCategory,
-  headingComponent
+  headingComponent,
+  blogStatistics,
+  timeLine,
+  pageType,
 ]

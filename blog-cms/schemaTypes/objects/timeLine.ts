@@ -11,8 +11,8 @@ export const timeLine = defineType({
            type:"string",
         }),
         defineField({
-            name:"",
-            title:"",
+            name:"icon",
+            title:"Icon",
             type: 'icon.manager',
         }),
         defineField({

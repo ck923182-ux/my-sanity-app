@@ -14,7 +14,14 @@ interface Props {
 export default async function BlogPage({ params }: Props) {
   const { slug } = await params;
 
-  const post = await client.fetch(SINGLE_POST_QUERY, { slug });
+  const post = await client.fetch(SINGLE_POST_QUERY, { slug }
+    , {
+      next: {
+        revalidate: 60,
+      },
+    }
+
+  );
   const relatedPosts = await client.fetch(RELATED_POSTS_QUERY, {
     categoryId: post?.category?._id,
     slug,
@@ -63,7 +70,7 @@ export default async function BlogPage({ params }: Props) {
           <div className="prose prose-slate mt-10 max-w-none prose-headings:text-slate-900 prose-a:text-slate-900">
             {/* <PortableText value={post.content} /> */}
             <PortableTextRenderer value={post.content} />
-            
+
           </div>
         </article>
 

@@ -20,15 +20,14 @@ export async function POST(request: NextRequest) {
     console.log("🔥 SANITY WEBHOOK PAYLOAD:");
     console.log(JSON.stringify(body, null, 2));
 
-    if (body._type === "post") {
+    revalidatePath("/");
+    revalidatePath("/blog");
+
+    if (body._type === "post" && body.slug?.current) {
       const slug = body.slug?.current;
 
-      revalidatePath("/");
-      revalidatePath("/blog");
-
-      if (slug) {
-        revalidatePath(`/blog/${slug}`);
-      }
+      revalidatePath(`/blog/${slug}`);
+      console.log(`✅ Revalidated post: /blog/${slug}`);
     }
 
     return NextResponse.json({
