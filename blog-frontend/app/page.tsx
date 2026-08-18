@@ -47,10 +47,10 @@ export default async function Home() {
           <div className="rounded-3xl bg-slate-900 p-6 text-slate-300">
             <h3 className="text-xl font-semibold text-white">{welcomeblog.featertitle}</h3>
             <ul className="mt-4 space-y-3 text-sm leading-7">
-              {welcomeblog.homefeatures.map((feature, index) => (
+              {welcomeblog.homefeatures?.map((feature, index) => (
                 <li key={index}>
                   {feature.icon}
-                  {feature.description}
+                  {feature.description} 
                 </li>
               ))}
             </ul>

@@ -86,12 +86,13 @@ export const RELATED_POSTS_QUERY = `
       current
     }
   },
-  category->{
-    title,
-    slug{
-      current
-    }
-  },
+ category->{
+  _id,
+  title,
+  slug{
+    current
+  }
+},
   posttag[]->{
     title,
     slug{

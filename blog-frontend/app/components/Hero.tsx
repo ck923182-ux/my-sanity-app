@@ -17,17 +17,17 @@ export default async function Hero() {
       <div className="mx-auto flex max-w-7xl flex-col gap-10 lg:flex-row lg:items-end lg:justify-between">
         <div className="max-w-2xl">
           <p className="mb-4 inline-flex rounded-full border border-white/15 bg-white/10 px-3 py-1 text-sm font-medium">
-            {hero.subheading}
+            {hero?.subheading}
           </p>
           <h2 className="text-4xl font-semibold leading-tight sm:text-5xl">
-            {hero.heading}
+            {hero?.heading}
           </h2>
           <p className="mt-4 text-lg leading-8 text-slate-300">
-            {hero.content}
+            {hero?.content}
           </p>
 
           <div className="mt-8 flex flex-wrap gap-3">
-            {hero.heroButton.map((button) => (
+            {hero?.heroButton.map((button) => (
               <Link
                 key={button._key}
                 href={button.link}

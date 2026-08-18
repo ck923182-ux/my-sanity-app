@@ -14,19 +14,15 @@ interface Props {
 export default async function BlogPage({ params }: Props) {
   const { slug } = await params;
 
-  const post = await client.fetch(SINGLE_POST_QUERY, { slug }
-    , {
-      next: {
-        revalidate: 60,
-      },
-    }
-
-  );
-  const relatedPosts = await client.fetch(RELATED_POSTS_QUERY, {
-    categoryId: post?.category?._id,
-    slug,
-  });
-
+  const post = await client.fetch(
+  SINGLE_POST_QUERY,
+  { slug },
+  {
+    next: {
+      revalidate: 60,
+    },
+  }
+);
   if (!post) {
     return (
       <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
@@ -35,7 +31,10 @@ export default async function BlogPage({ params }: Props) {
       </main>
     );
   }
-
+const relatedPosts = await client.fetch(RELATED_POSTS_QUERY, {
+  categoryId: post.category._id,
+  slug,
+});
   return (
     <div className="bg-slate-50">
       <main className="mx-auto max-w-6xl px-4 py-12 sm:px-6 lg:px-8">
