@@ -2,12 +2,17 @@
  * BlockRenderer
  *
  * Renders any Page Builder block by mapping its `_type` to the correct
- * React component. To add a new block:
+ * React component. Each block is automatically wrapped in SectionWrapper
+ * which applies the bg color, text color, and vertical padding chosen in
+ * Sanity Studio — no changes needed in individual block components.
+ *
+ * To add a new block:
  *   1. Create its component in app/components/blocks/
  *   2. Add its type to the `blockMap` below — that's it.
  */
 
 import type { PageBuilderBlock } from "@/app/types/pageBuilder";
+import SectionWrapper from "./SectionWrapper";
 
 import HeroSection from "./blocks/HeroSection";
 import Feature from "./blocks/Feature";
@@ -20,10 +25,7 @@ import ExploreCategory from "./blocks/ExploreCategory";
 import MeetOurTeam from "./blocks/MeetOurTeam";
 
 // ─── Block map ────────────────────────────────────────────────────────────────
-// Key   = Sanity _type string
-// Value = React component that accepts { block }
 
-// Using `any` here intentionally: each component is typed via its own props.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const blockMap: Record<string, React.ComponentType<{ block: any }>> = {
   heroSection: HeroSection,
@@ -37,7 +39,7 @@ const blockMap: Record<string, React.ComponentType<{ block: any }>> = {
   meetourteam: MeetOurTeam,
 };
 
-// ─── Component ────────────────────────────────────────────────────────────────
+// ─── Renderer ────────────────────────────────────────────────────────────────
 
 interface BlockRendererProps {
   blocks: PageBuilderBlock[];
@@ -52,7 +54,6 @@ export default function BlockRenderer({ blocks }: BlockRendererProps) {
         const Component = blockMap[block._type];
 
         if (!Component) {
-          // In development, surface unknown blocks so you can add them.
           if (process.env.NODE_ENV === "development") {
             return (
               <div
@@ -67,7 +68,13 @@ export default function BlockRenderer({ blocks }: BlockRendererProps) {
           return null;
         }
 
-        return <Component key={block._key} block={block} />;
+        // Every block gets wrapped in SectionWrapper which applies
+        // the user-chosen background color, text color, and padding.
+        return (
+          <SectionWrapper key={block._key} style={(block as any).style}>
+            <Component block={block} />
+          </SectionWrapper>
+        );
       })}
     </>
   );

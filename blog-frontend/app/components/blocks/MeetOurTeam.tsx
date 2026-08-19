@@ -2,7 +2,7 @@ import Image from "next/image";
 import { urlFor } from "@/lib/image";
 import type { MeetOurTeamBlock, TeamMember, SocialLink } from "@/app/types/pageBuilder";
 
-// ─── Social icon map ─────────────────────────────────────────────────────────
+// ─── Social icons ─────────────────────────────────────────────────────────────
 
 const socialIcons: Record<string, React.ReactNode> = {
   twitter: (
@@ -34,13 +34,31 @@ const socialIcons: Record<string, React.ReactNode> = {
   ),
 };
 
-// ─── Member card ─────────────────────────────────────────────────────────────
-
-function MemberCard({ member }: { member: TeamMember }) {
+function SocialButton({ link }: { link: SocialLink }) {
+  if (!link.url || !link.platform) return null;
   return (
-    <div className="flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm transition hover:-translate-y-1 hover:shadow-md">
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label={link.platform}
+      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition-all duration-200 hover:border-slate-900 hover:bg-slate-900 hover:text-white hover:scale-110"
+    >
+      {socialIcons[link.platform] ?? (
+        <span className="text-xs font-bold uppercase">{link.platform[0]}</span>
+      )}
+    </a>
+  );
+}
+
+function MemberCard({ member, index }: { member: TeamMember; index: number }) {
+  return (
+    <div
+      className="group flex flex-col items-center rounded-2xl border border-slate-200 bg-white p-6 text-center shadow-sm transition-all duration-300 hover:-translate-y-1.5 hover:border-slate-300 hover:shadow-xl"
+      style={{ animationDelay: `${index * 60}ms` }}
+    >
       {/* Photo */}
-      <div className="relative mb-4 h-24 w-24 overflow-hidden rounded-full bg-slate-100">
+      <div className="relative mb-5 h-24 w-24 overflow-hidden rounded-full bg-slate-100 shadow-md ring-4 ring-white transition-transform duration-300 group-hover:scale-105">
         {member.image ? (
           <Image
             src={urlFor(member.image).width(200).height(200).url()}
@@ -50,26 +68,24 @@ function MemberCard({ member }: { member: TeamMember }) {
             sizes="96px"
           />
         ) : (
-          <div className="flex h-full w-full items-center justify-center bg-slate-900 text-2xl font-bold text-white">
+          <div className="flex h-full w-full items-center justify-center bg-gradient-to-br from-slate-700 to-slate-900 text-2xl font-bold text-white">
             {member.name.charAt(0).toUpperCase()}
           </div>
         )}
       </div>
 
-      {/* Name & role */}
       <p className="text-base font-semibold text-slate-900">{member.name}</p>
+
       {member.designation && (
-        <p className="mt-0.5 text-sm font-medium text-slate-500">{member.designation}</p>
+        <p className="mt-1 text-sm font-medium text-slate-500">{member.designation}</p>
       )}
 
-      {/* Bio */}
       {member.bio && (
         <p className="mt-3 line-clamp-3 text-sm leading-6 text-slate-600">{member.bio}</p>
       )}
 
-      {/* Social links */}
       {member.socialLinks && member.socialLinks.length > 0 && (
-        <div className="mt-4 flex items-center justify-center gap-3">
+        <div className="mt-5 flex items-center justify-center gap-2">
           {member.socialLinks.map((link) => (
             <SocialButton key={link._key} link={link} />
           ))}
@@ -79,56 +95,33 @@ function MemberCard({ member }: { member: TeamMember }) {
   );
 }
 
-function SocialButton({ link }: { link: SocialLink }) {
-  if (!link.url || !link.platform) return null;
-  return (
-    <a
-      href={link.url}
-      target="_blank"
-      rel="noopener noreferrer"
-      aria-label={link.platform}
-      className="flex h-8 w-8 items-center justify-center rounded-full border border-slate-200 text-slate-500 transition hover:border-slate-900 hover:text-slate-900"
-    >
-      {socialIcons[link.platform] ?? (
-        <span className="text-xs font-medium uppercase">{link.platform[0]}</span>
-      )}
-    </a>
-  );
-}
-
-// ─── Main block ───────────────────────────────────────────────────────────────
-
 export default function MeetOurTeam({ block }: { block: MeetOurTeamBlock }) {
   const { sectionTitle, sectionContent, members } = block;
 
   if (!members || members.length === 0) return null;
 
   return (
-    <section className="px-4 py-16 sm:px-6 lg:px-8">
-      <div className="mx-auto max-w-7xl">
-        {/* Section header */}
-        {(sectionTitle || sectionContent) && (
-          <div className="mb-12 text-center">
-            {sectionTitle && (
-              <h2 className="text-3xl font-semibold text-slate-900 sm:text-4xl">
-                {sectionTitle}
-              </h2>
-            )}
-            {sectionContent && (
-              <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-slate-600">
-                {sectionContent}
-              </p>
-            )}
-          </div>
-        )}
-
-        {/* Grid */}
-        <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {members.map((member) => (
-            <MemberCard key={member._key} member={member} />
-          ))}
+    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+      {(sectionTitle || sectionContent) && (
+        <div className="mb-12 text-center">
+          {sectionTitle && (
+            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+              {sectionTitle}
+            </h2>
+          )}
+          {sectionContent && (
+            <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+              {sectionContent}
+            </p>
+          )}
         </div>
+      )}
+
+      <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
+        {members.map((member, i) => (
+          <MemberCard key={member._key} member={member} index={i} />
+        ))}
       </div>
-    </section>
+    </div>
   );
 }

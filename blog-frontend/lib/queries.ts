@@ -285,6 +285,11 @@ export const HOME_PAGE_QUERY = `
   pageBuilder[]{
     _key,
     _type,
+    style{
+      bgColor,
+      textColor,
+      paddingY
+    },
 
     _type == "heroSection" => {
       heading,
@@ -411,6 +416,11 @@ export const PAGE_QUERY = `
   pageBuilder[]{
     _key,
     _type,
+    style{
+      bgColor,
+      textColor,
+      paddingY
+    },
 
     // heroSection
     _type == "heroSection" => {
