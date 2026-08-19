@@ -62,5 +62,12 @@ export const heroType = defineType({
         },
       ],
     }),
+    defineField({
+      name: 'style',
+      title: 'Section Style',
+      type: 'sectionStyle',
+      group: undefined,
+      description: 'Customise background colour, text colour, and spacing.',
+    }),
   ],
 })

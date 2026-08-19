@@ -18,6 +18,9 @@ import { headingComponent } from './components/headingComponent '
 import { blogStatistics } from './objects/blogStatistics'
 import { timeLine } from './objects/timeLine'
 import { pageType } from './documents/page'
+import { meeturTeam } from './objects/meetourTeam'
+import { sectionStyle } from './objects/sectionStyle'
+
 export const schemaTypes = [
   categoryType,
   authorType,
@@ -39,4 +42,6 @@ export const schemaTypes = [
   blogStatistics,
   timeLine,
   pageType,
+  meeturTeam,
+  sectionStyle,
 ]

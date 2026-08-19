@@ -262,35 +262,118 @@ export const SITEMAP_POSTS_QUERY = `
 }
 `;
 
-// Homae page hero object fetch 
+// Home page singleton fetch
 
 export const HOME_PAGE_QUERY = `
 *[_type=="homePage"][0]{
-  hero{
-   heading,
-   subheading,
-   heroButton,
-  },
   welcomeblog{
-  eyebrow,
-  heading,
-  description,
-  featertitle,
-  heroButton[]{
-  _key,
-  text,
-  link,
-  variant
+    eyebrow,
+    heading,
+    description,
+    featertitle,
+    heroButton[]{
+      _key,
+      text,
+      link,
+      variant
+    },
+    homefeatures[]{
+      icon,
+      description
+    },
   },
-  homefeatures[]{
-  icon,
-  description
-  },
-  },
-  features[]{
-   icon,
-   description
-  },
+  pageBuilder[]{
+    _key,
+    _type,
+
+    _type == "heroSection" => {
+      heading,
+      subheading,
+      content,
+      heroButton[]{_key, text, link, variant},
+      Highlights,
+      Highlightscards[]{Highlightsnumber, text}
+    },
+
+    _type == "feature" => {
+      icon,
+      description
+    },
+
+    _type == "twocolumn" => {
+      heading{heading, headingTag},
+      Content[]{..., _key},
+      twocolumnbutton{text, link, variant},
+      image
+    },
+
+    _type == "featurblog" => {
+      eyebrow,
+      featurtitle,
+      Content[]{..., _key},
+      featurebutton{text, link, variant},
+      blog->{
+        _id,
+        title,
+        slug{current},
+        excerpt,
+        featuredImage,
+        publishedAt,
+        author->{name, slug{current}},
+        category->{title, slug{current}}
+      }
+    },
+
+    _type == "blogStats" => {
+      sectionTitle,
+      stats[]{
+        _key,
+        icon,
+        blogmetrics,
+        title
+      }
+    },
+
+    _type == "timeline" => {
+      sectionTitle,
+      items[]{
+        _key,
+        year,
+        heading,
+        icon,
+        image,
+        points[]{_key, text}
+      }
+    },
+
+    _type == "topauthor" => {
+      sectionTitle,
+      authors[]->{_id, name, slug{current}, bio}
+    },
+
+    _type == "explorcategoey" => {
+      sectionTitle,
+      categories[]->{
+        _id,
+        title,
+        slug{current},
+        "postCount": count(*[_type == "post" && category._ref == ^._id])
+      }
+    },
+
+    _type == "meetourteam" => {
+      sectionTitle,
+      sectionContent,
+      members[]{
+        _key,
+        name,
+        designation,
+        image,
+        bio,
+        socialLinks[]{_key, platform, url}
+      }
+    }
+  }
 }
 `
 
@@ -317,3 +400,118 @@ export const ABOUT_PAGE_QUERY = `
   },
 }
 `
+
+// ─── Page Builder ─────────────────────────────────────────────────────────────
+
+export const PAGE_QUERY = `
+*[_type == "page" && slug.current == $slug][0]{
+  _id,
+  title,
+  slug,
+  pageBuilder[]{
+    _key,
+    _type,
+
+    // heroSection
+    _type == "heroSection" => {
+      heading,
+      subheading,
+      content,
+      heroButton[]{_key, text, link, variant},
+      Highlights,
+      Highlightscards[]{Highlightsnumber, text}
+    },
+
+    // feature
+    _type == "feature" => {
+      icon,
+      description
+    },
+
+    // twocolumn
+    _type == "twocolumn" => {
+      heading{heading, headingTag},
+      Content[]{..., _key},
+      twocolumnbutton{text, link, variant},
+      image
+    },
+
+    // featurblog
+    _type == "featurblog" => {
+      eyebrow,
+      featurtitle,
+      Content[]{..., _key},
+      featurebutton{text, link, variant},
+      blog->{
+        _id,
+        title,
+        slug{current},
+        excerpt,
+        featuredImage,
+        publishedAt,
+        author->{name, slug{current}},
+        category->{title, slug{current}}
+      }
+    },
+
+    // blogStats
+    _type == "blogStats" => {
+      sectionTitle,
+      stats[]{
+        _key,
+        icon,
+        blogmetrics,
+        title
+      }
+    },
+
+    // timeline
+    _type == "timeline" => {
+      sectionTitle,
+      items[]{
+        _key,
+        year,
+        heading,
+        icon,
+        image,
+        points[]{_key, text}
+      }
+    },
+
+    // topauthor
+    _type == "topauthor" => {
+      sectionTitle,
+      authors[]->{_id, name, slug{current}, bio}
+    },
+
+    // explorcategoey
+    _type == "explorcategoey" => {
+      sectionTitle,
+      categories[]->{
+        _id,
+        title,
+        slug{current},
+        "postCount": count(*[_type == "post" && category._ref == ^._id])
+      }
+    },
+
+    // meetourteam
+    _type == "meetourteam" => {
+      sectionTitle,
+      sectionContent,
+      members[]{
+        _key,
+        name,
+        designation,
+        image,
+        bio,
+        socialLinks[]{_key, platform, url}
+      }
+    }
+  }
+}
+`;
+
+export const ALL_PAGES_QUERY = `
+*[_type == "page"]{ slug }
+`;

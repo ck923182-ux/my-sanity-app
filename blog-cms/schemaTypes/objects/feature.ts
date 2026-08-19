@@ -1,5 +1,4 @@
 import { defineField, defineType } from "sanity";
-import { run } from "sanity/migrate";
 
 export const featureType = defineType({
     name: "feature",
@@ -17,6 +16,12 @@ export const featureType = defineType({
             type: "text",
             rows: 3,
             validation: (Rule) => Rule.required(),
+        }),
+        defineField({
+            name: 'style',
+            title: 'Section Style',
+            type: 'sectionStyle',
+            description: 'Customise background colour, text colour, and spacing.',
         }),
     ],
 });

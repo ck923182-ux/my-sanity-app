@@ -30,5 +30,11 @@ export const twoColoum = defineType({
       title: 'Image',
       type: 'image',
     }),
+    defineField({
+      name: 'style',
+      title: 'Section Style',
+      type: 'sectionStyle',
+      description: 'Customise background colour, text colour, and spacing.',
+    }),
   ],
 })

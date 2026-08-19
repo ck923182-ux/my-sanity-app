@@ -9,6 +9,7 @@ export const pageBuilderSectionTypes = [
   'timeline',
   'topauthor',
   'explorcategoey',
+  'meetourteam',
 ] as const
 
 export const pageBuilderSections = pageBuilderSectionTypes.map((type) =>

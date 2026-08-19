@@ -37,5 +37,11 @@ export const featureBlog = defineType({
       to: [{type: 'post'}],
       validation: (Rule) => Rule.required(),
     }),
+    defineField({
+      name: 'style',
+      title: 'Section Style',
+      type: 'sectionStyle',
+      description: 'Customise background colour, text colour, and spacing.',
+    }),
   ],
 })

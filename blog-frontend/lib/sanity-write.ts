@@ -1,9 +1,3 @@
-// lib/sanity-write.ts
-//
-// A SEPARATE client from lib/sanity.ts. That one is read-only and public
-// (NEXT_PUBLIC_* env vars, safe to ship to the browser). This one holds a
-// write token and must only ever be imported from server-side code
-// (API routes, Route Handlers) — never from a client component.
 
 import { createClient } from "@sanity/client";
 
