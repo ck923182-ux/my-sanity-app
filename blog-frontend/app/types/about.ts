@@ -16,6 +16,7 @@
 // export interface AboutPage {
 //     aboutUs:AboutUs
 // }
+import type { PageBuilderBlock } from "./pageBuilder";
 
 export interface AboutUs {
   eyebrow: string;
@@ -36,4 +37,6 @@ export interface Feature {
 
 export interface AboutPage {
   aboutUs: AboutUs;
+    pageBuilder: PageBuilderBlock[];
+
 }

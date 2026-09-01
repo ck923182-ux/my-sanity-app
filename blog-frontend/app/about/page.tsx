@@ -4,9 +4,14 @@ import { AboutPage } from "../types/about";
 import { client } from "@/lib/sanity";
 import NewsForm from "./newsform";
 import { Icon } from "@iconify/react";
+// import BlockRenderer from "./components/BlockRenderer";
+import BlockRenderer from "../components/BlockRenderer";
+
 
 export default async function AboutusPage() {
   const aboutuspage: AboutPage = await client.fetch(ABOUT_PAGE_QUERY);
+  const pageBuilder = aboutuspage?.pageBuilder ?? [];
+
 
   // Safe fallback to prevent app from breaking if database is empty
   const aboutUs = aboutuspage?.aboutUs || {};
@@ -86,6 +91,11 @@ export default async function AboutusPage() {
       <div className="py-12">
         <NewsForm />
       </div>
+       {/* ── Page Builder blocks (heroSection, twocolumn, etc.) ── */}
+            {pageBuilder.length > 0 && (
+              <BlockRenderer blocks={pageBuilder} />
+            )}
+      
     </main>
   );
 }
