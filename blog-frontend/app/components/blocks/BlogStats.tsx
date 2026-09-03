@@ -15,9 +15,9 @@ export default function BlogStats({ block }: { block: BlogStatsBlock }) {
   if (!stats || stats.length === 0) return null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="blog-stats mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       {sectionTitle && (
-        <h2 className="mb-12 text-center text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <h2 className="mb-12 text-center text-3xl font-bold tracking-tight sm:text-4xl">
           {sectionTitle}
         </h2>
       )}
@@ -36,7 +36,7 @@ export default function BlogStats({ block }: { block: BlogStatsBlock }) {
                   <Icon icon={iconName} className="h-6 w-6" />
                 </span>
               )}
-              <p className="text-4xl font-bold tabular-nums text-slate-900">
+              <p className="text-4xl font-bold tabular-nums">
                 {stat.blogmetrics.toLocaleString()}
               </p>
               <p className="text-sm font-medium text-slate-500">{stat.title}</p>
@@ -44,6 +44,6 @@ export default function BlogStats({ block }: { block: BlogStatsBlock }) {
           );
         })}
       </div>
-    </div>
+    </section>
   );
 }

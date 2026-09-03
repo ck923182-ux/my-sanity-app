@@ -103,11 +103,11 @@ export default function Timeline({ block }: { block: TimelineBlock }) {
   if (!items || items.length === 0) return null;
 
   return (
-    <section ref={sectionRef} className="px-4 py-16 sm:px-6 lg:px-8">
+    <section ref={sectionRef} className="timeline-zone px-4 py-16 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-5xl">
 
         {sectionTitle && (
-          <h2 className="mb-14 text-center text-3xl font-semibold text-slate-900 sm:text-4xl">
+          <h2 className="mb-14 text-center text-3xl font-semibold  sm:text-4xl">
             {sectionTitle}
           </h2>
         )}

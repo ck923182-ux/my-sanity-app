@@ -12,17 +12,17 @@ export default function TwoColumn({ block }: { block: TwoColumnBlock }) {
   const Tag = headingTagMap[block.heading?.headingTag ?? "h2"] ?? "h2";
 
   return (
-    <div className="mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
+    <div className="two-column-stripe mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
       {/* Text column */}
       <div className="flex flex-col gap-6">
         {block.heading?.heading && (
-          <Tag className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+          <Tag className="text-3xl font-bold tracking-tight  sm:text-4xl">
             {block.heading.heading}
           </Tag>
         )}
 
         {block.Content && (
-          <div className="prose prose-slate max-w-none text-slate-600">
+          <div className="prose prose-slate max-w-none">
             <PortableText value={block.Content as any} />
           </div>
         )}

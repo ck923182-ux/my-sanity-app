@@ -101,16 +101,16 @@ export default function MeetOurTeam({ block }: { block: MeetOurTeamBlock }) {
   if (!members || members.length === 0) return null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <div className="meet-our-team mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       {(sectionTitle || sectionContent) && (
         <div className="mb-12 text-center">
           {sectionTitle && (
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight sm:text-4xl">
               {sectionTitle}
             </h2>
           )}
           {sectionContent && (
-            <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 text-slate-600">
+            <p className="mx-auto mt-4 max-w-2xl text-lg leading-8 ">
               {sectionContent}
             </p>
           )}

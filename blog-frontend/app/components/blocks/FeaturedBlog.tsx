@@ -8,7 +8,7 @@ export default function FeaturedBlog({ block }: { block: FeaturedBlogBlock }) {
   const { eyebrow, featurtitle, Content, featurebutton, blog } = block;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="feature-blogs mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       {(eyebrow || featurtitle) && (
         <div className="mb-10">
           {eyebrow && (
@@ -17,12 +17,12 @@ export default function FeaturedBlog({ block }: { block: FeaturedBlogBlock }) {
             </p>
           )}
           {featurtitle && (
-            <h2 className="text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+            <h2 className="text-3xl font-bold tracking-tight  sm:text-4xl">
               {featurtitle}
             </h2>
           )}
           {Content && (
-            <div className="prose prose-slate mt-4 max-w-2xl text-slate-600">
+            <div className="prose prose-slate mt-4 max-w-2xl ">
               <PortableText value={Content as any} />
             </div>
           )}
@@ -53,7 +53,7 @@ export default function FeaturedBlog({ block }: { block: FeaturedBlogBlock }) {
             </Link>
           )}
 
-          <h3 className="text-2xl font-bold tracking-tight text-slate-900 transition-colors duration-200 group-hover:text-slate-700">
+          <h3 className="text-2xl font-bold tracking-tight  transition-colors duration-200 group-hover:text-slate-700">
             {blog.title}
           </h3>
 
@@ -93,6 +93,6 @@ export default function FeaturedBlog({ block }: { block: FeaturedBlogBlock }) {
           </div>
         </div>
       </div>
-    </div>
+    </section>
   );
 }

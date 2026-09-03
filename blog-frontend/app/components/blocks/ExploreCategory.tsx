@@ -7,9 +7,9 @@ export default function ExploreCategory({ block }: { block: ExploreCategoryBlock
   if (!categories || categories.length === 0) return null;
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+    <section className="explore-category-stripe mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
       {sectionTitle && (
-        <h2 className="mb-10 text-center text-3xl font-bold tracking-tight text-slate-900 sm:text-4xl">
+        <h2 className="mb-10 text-center text-3xl font-bold tracking-tight sm:text-4xl">
           {sectionTitle}
         </h2>
       )}
@@ -39,6 +39,6 @@ export default function ExploreCategory({ block }: { block: ExploreCategoryBlock
           </Link>
         ))}
       </div>
-    </div>
+    </section>
   );
 }

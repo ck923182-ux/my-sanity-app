@@ -3,7 +3,7 @@ import type { HeroSectionBlock } from "@/app/types/pageBuilder";
 
 export default function HeroSection({ block }: { block: HeroSectionBlock }) {
   return (
-    <section className="relative overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-slate-700 px-4 text-white sm:px-6 lg:px-8">
+    <section className="hero-stripe relative overflow-hidden from-slate-900 via-slate-800 to-slate-700 px-4 text-white sm:px-6 lg:px-8">
       {/* subtle radial glow */}
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
