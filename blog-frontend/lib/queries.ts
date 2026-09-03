@@ -262,6 +262,14 @@ export const SITEMAP_POSTS_QUERY = `
 }
 `;
 
+export const ALL_PAGES_QUERY = `
+  *[_type == "page" && defined(slug.current)]{
+    slug{
+      current
+    }
+  }
+`;
+
 // ─── Reusable Page Builder ───────────────────────────────────────────────────
 
 const PAGE_BUILDER = `
