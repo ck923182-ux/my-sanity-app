@@ -1,7 +1,8 @@
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
 import { client } from "@/lib/sanity";
-import { PAGE_QUERY, ALL_PAGES_QUERY } from "@/lib/queries";
+import { PAGE_QUERY } from "@/lib/queries";
+// import { ALL_PAGES_QUERY } from "@/lib/queries";
 import type { PageDocument } from "@/app/types/pageBuilder";
 import BlockRenderer from "@/app/components/BlockRenderer";
 
@@ -9,7 +10,7 @@ import BlockRenderer from "@/app/components/BlockRenderer";
 
 export async function generateStaticParams() {
   const pages: { slug: { current: string } }[] =
-    await client.fetch(ALL_PAGES_QUERY);
+    await client.fetch(PAGE_QUERY);
 
   return pages.map((page) => ({ slug: page.slug.current }));
 }
