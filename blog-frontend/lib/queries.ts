@@ -270,17 +270,27 @@ export const ALL_PAGES_QUERY = `
   }
 `;
 
+/** Fetches the global color palette defined in Site Settings once per page load */
+export const THEME_COLORS_QUERY = `
+*[_type == "sitesettings"][0]{
+  themeColors[]{
+    _key,
+    label,
+    value{
+      hex,
+      rgb{ r, g, b, a }
+    }
+  }
+}.themeColors
+`;
+
 // ─── Reusable Page Builder ───────────────────────────────────────────────────
 
 const PAGE_BUILDER = `
   pageBuilder[]{
     _key,
     _type,
-    style{
-      bgColor,
-      textColor,
-      paddingY
-    },
+    style{ bgColorToken, textColorToken, paddingY },
 
     _type == "heroSection" => {
       heading,

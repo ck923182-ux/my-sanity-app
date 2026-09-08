@@ -29,14 +29,25 @@ export interface SanityColor {
   hex: string;
   alpha?: number;
   rgb?: { r: number; g: number; b: number; a: number };
-  hsl?: { h: number; s: number; l: number; a: number };
 }
 
 export type PaddingY = "none" | "sm" | "md" | "lg" | "xl";
 
+/** A named color entry from Site Settings → Theme Colors */
+export interface ThemeColor {
+  _key: string;
+  label: string;
+  value: SanityColor;
+}
+
+/**
+ * Per-block style. bgColorToken / textColorToken are the *label* strings
+ * (e.g. "Brand Red") that get resolved to actual hex values at render time
+ * using the global palette fetched from Site Settings.
+ */
 export interface SectionStyle {
-  bgColor?: SanityColor;
-  textColor?: SanityColor;
+  bgColorToken?: string;
+  textColorToken?: string;
   paddingY?: PaddingY;
 }
 
@@ -201,3 +212,8 @@ export interface PageDocument {
   slug: { current: string };
   pageBuilder: PageBuilderBlock[];
 }
+
+// ─── Site theme ───────────────────────────────────────────────────────────────
+
+/** Resolved palette fetched alongside every page */
+export type ThemePalette = ThemeColor[];

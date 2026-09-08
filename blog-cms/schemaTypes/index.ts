@@ -20,6 +20,7 @@ import { timeLine } from './objects/timeLine'
 import { pageType } from './documents/page'
 import { meeturTeam } from './objects/meetourTeam'
 import { sectionStyle } from './objects/sectionStyle'
+import { themeColor } from './objects/themeColor'
 
 export const schemaTypes = [
   categoryType,
@@ -44,4 +45,5 @@ export const schemaTypes = [
   pageType,
   meeturTeam,
   sectionStyle,
+  themeColor,
 ]

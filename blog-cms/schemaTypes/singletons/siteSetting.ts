@@ -1,10 +1,18 @@
-import {defineField, defineType} from 'sanity'
+import {defineArrayMember, defineField, defineType} from 'sanity'
 
 export const siteSetting = defineType({
   name: 'sitesettings',
   title: 'Site Setting',
   type: 'document',
   fields: [
+    defineField({
+      name: 'themeColors',
+      title: 'Theme Colors',
+      type: 'array',
+      description:
+        'Define your global color palette here. Once saved, these colors appear as named options in every section\'s style picker — change a color here and it updates everywhere.',
+      of: [defineArrayMember({type: 'themeColor'})],
+    }),
     defineField({
       name: 'header',
       title: 'Header',

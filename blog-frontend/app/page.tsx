@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { Icon } from "@iconify/react";
 import { client } from "@/lib/sanity";
-import { HOME_PAGE_QUERY } from "@/lib/queries";
+import { HOME_PAGE_QUERY, THEME_COLORS_QUERY } from "@/lib/queries";
 import type { HomePage } from "./types/home";
+import type { ThemeColor } from "./types/pageBuilder";
 import BlockRenderer from "./components/BlockRenderer";
+import { ThemeProvider } from "./context/ThemeContext";
 
 export default async function Home() {
-  const homepage: HomePage = await client.fetch(HOME_PAGE_QUERY);
+  const [homepage, palette] = await Promise.all([
+    client.fetch<HomePage>(HOME_PAGE_QUERY),
+    client.fetch<ThemeColor[]>(THEME_COLORS_QUERY),
+  ]);
 
   // Safe fallbacks so the page never crashes on empty Sanity data
   const welcomeblog = homepage?.welcomeblog ?? {};
   const pageBuilder = homepage?.pageBuilder ?? [];
 
   return (
+    <ThemeProvider palette={palette ?? []}>
     <div className="bg-slate-50">
 
       {/* ── Welcome / intro section (welcomeblog singleton field) ── */}
@@ -88,5 +94,6 @@ export default async function Home() {
       )}
 
     </div>
+    </ThemeProvider>
   );
 }
