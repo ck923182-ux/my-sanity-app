@@ -3,7 +3,7 @@ import type { HeroSectionBlock } from "@/app/types/pageBuilder";
 
 export default function HeroSection({ block }: { block: HeroSectionBlock }) {
   return (
-    <section className="hero-stripe  overflow-hidden from-slate-900 via-slate-800 to-slate-700 px-4 text-white sm:px-6 lg:px-8">
+    <section className="hero-stripe  overflow-hidden from-slate-900 via-slate-800 to-slate-700 px-4  sm:px-6 lg:px-8">
       {/* subtle radial glow */}
       <div
         className="pointer-events-none absolute inset-0 opacity-30"
@@ -29,7 +29,7 @@ export default function HeroSection({ block }: { block: HeroSectionBlock }) {
           </h1>
 
           {block.content && (
-            <p className="mt-5 text-lg leading-8 text-slate-300">
+            <p className="mt-5 text-lg leading-8">
               {block.content}
             </p>
           )}
@@ -58,7 +58,7 @@ export default function HeroSection({ block }: { block: HeroSectionBlock }) {
         {block.Highlightscards && block.Highlightscards.length > 0 && (
           <div className="w-full max-w-sm rounded-3xl border border-white/10 bg-white/5 p-6 backdrop-blur-sm lg:w-auto">
             {block.Highlights && (
-              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em] text-slate-400">
+              <p className="mb-4 text-xs font-semibold uppercase tracking-[0.3em]">
                 {block.Highlights}
               </p>
             )}
@@ -68,10 +68,10 @@ export default function HeroSection({ block }: { block: HeroSectionBlock }) {
                   key={i}
                   className="rounded-2xl bg-slate-900/60 p-4 transition-transform duration-200 hover:scale-[1.03]"
                 >
-                  <p className="text-2xl font-bold text-white">
+                  <p className="text-2xl font-bold">
                     {card.Highlightsnumber}
                   </p>
-                  <p className="mt-1 text-xs text-slate-400">{card.text}</p>
+                  <p className="mt-1 text-xs ">{card.text}</p>
                 </div>
               ))}
             </div>
