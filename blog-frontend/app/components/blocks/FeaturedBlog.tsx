@@ -12,7 +12,7 @@ export default function FeaturedBlog({ block }: { block: FeaturedBlogBlock }) {
       {(eyebrow || featurtitle) && (
         <div className="mb-10">
           {eyebrow && (
-            <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em] text-slate-400">
+            <p className="mb-2 text-xs font-bold uppercase tracking-[0.3em]">
               {eyebrow}
             </p>
           )}
