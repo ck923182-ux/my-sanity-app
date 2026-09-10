@@ -328,7 +328,8 @@ const PAGE_BUILDER = `
         link,
         variant
       },
-      image
+      image,
+      imagePosition
     },
 
     _type == "featurblog" => {

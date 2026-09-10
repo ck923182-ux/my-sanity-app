@@ -28,7 +28,7 @@ function TimelineCard({ item, side }: { item: TimelineItem; side: "left" | "righ
       }`}
     >
       {/* Year badge */}
-      <span className="inline-block rounded bg-red-600 px-2.5 py-0.5 text-xs font-bold uppercase tracking-widest text-white">
+      <span className="inline-block rounded bg-slate-950 px-2.5 py-0.5 text-xs font-bold uppercase tracking-widest text-white">
         {item.year}
       </span>
 
@@ -62,7 +62,7 @@ function TimelineCard({ item, side }: { item: TimelineItem; side: "left" | "righ
         <ul className="mt-4 space-y-2">
           {item.points.map((point) => (
             <li key={point._key} className="flex items-start gap-2 text-sm leading-6 text-slate-600">
-              <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-red-500" />
+              <span className="mt-2 h-1.5 w-1.5 flex-shrink-0 rounded-full bg-slate-950" />
               {point.text}
             </li>
           ))}
@@ -122,7 +122,7 @@ export default function Timeline({ block }: { block: TimelineBlock }) {
 
           {/* ── Red scroll-progress fill ── */}
           <div
-            className="pointer-events-none absolute left-1/2 top-0 w-0.5 -translate-x-1/2 bg-red-500 transition-none"
+            className="pointer-events-none absolute left-1/2 top-0 w-0.5 -translate-x-1/2 bg-slate-950 transition-none"
             style={{ height: `${progress * 100}%` }}
             aria-hidden="true"
           />
@@ -142,7 +142,7 @@ export default function Timeline({ block }: { block: TimelineBlock }) {
 
                   {/* Centre dot */}
                   <div className="relative z-10 flex h-4 w-4 flex-shrink-0 items-center justify-center rounded-full border-2 border-slate-300 bg-white">
-                    <span className="h-2 w-2 rounded-full bg-red-500" />
+                    <span className="h-2 w-2 rounded-full bg-slate-950 " />
                   </div>
 
                   {/* Right cell */}

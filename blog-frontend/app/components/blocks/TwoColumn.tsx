@@ -5,11 +5,17 @@ import { urlFor } from "@/lib/image";
 import type { TwoColumnBlock } from "@/app/types/pageBuilder";
 
 const headingTagMap = {
-  h1: "h1", h2: "h2", h3: "h3", h4: "h4", h5: "h5", h6: "h6",
+  h1: "h1",
+  h2: "h2",
+  h3: "h3",
+  h4: "h4",
+  h5: "h5",
+  h6: "h6",
 } as const;
 
 export default function TwoColumn({ block }: { block: TwoColumnBlock }) {
   const Tag = headingTagMap[block.heading?.headingTag ?? "h2"] ?? "h2";
+  const imageOnRight = block.imagePosition === "right";
 
   return (
     <div className="two-column-stripe mx-auto grid max-w-7xl items-center gap-12 px-4 sm:px-6 lg:grid-cols-2 lg:px-8">
@@ -38,7 +44,9 @@ export default function TwoColumn({ block }: { block: TwoColumnBlock }) {
               }
             >
               {block.twocolumnbutton.text}
-              <span className="transition-transform duration-200 group-hover:translate-x-0.5">→</span>
+              <span className="transition-transform duration-200 group-hover:translate-x-0.5">
+                →
+              </span>
             </Link>
           </div>
         )}
@@ -46,7 +54,12 @@ export default function TwoColumn({ block }: { block: TwoColumnBlock }) {
 
       {/* Image column */}
       {block.image && (
-        <div className="group relative aspect-[4/3] overflow-hidden rounded-3xl bg-slate-100 shadow-lg transition-shadow duration-300 hover:shadow-xl">
+        <div
+          className={`group relative aspect-[4/3] overflow-hidden rounded-3xl bg-slate-100 shadow-lg transition-shadow duration-300 hover:shadow-xl ${
+            imageOnRight ? "lg:order-2" : "lg:order-1"
+          }`}
+        >
+          {" "}
           <Image
             src={urlFor(block.image).width(900).height(675).url()}
             alt={block.heading?.heading ?? "Section image"}

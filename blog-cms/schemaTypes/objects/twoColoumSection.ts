@@ -26,6 +26,19 @@ export const twoColoum = defineType({
       type: 'button',
     }),
     defineField({
+      name: 'imagePosition',
+      title: 'Image Position',
+      type: 'string',
+      options: {
+        list: [
+          {title: 'Left', value: 'left'},
+          {title: 'Right', value: 'right'},
+        ],
+        layout: 'radio', // optional
+      },
+    }),
+
+    defineField({
       name: 'image',
       title: 'Image',
       type: 'image',

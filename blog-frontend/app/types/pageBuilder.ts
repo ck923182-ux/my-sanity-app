@@ -81,6 +81,8 @@ export interface TwoColumnBlock {
   Content?: unknown[];
   twocolumnbutton?: SanityButton;
   image?: SanityImage;
+  imagePosition?: "left" | "right";
+
 }
 
 export interface FeaturedBlogBlock {

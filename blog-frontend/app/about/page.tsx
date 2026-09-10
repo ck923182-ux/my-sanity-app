@@ -7,18 +7,16 @@ import { Icon } from "@iconify/react";
 // import BlockRenderer from "./components/BlockRenderer";
 import BlockRenderer from "../components/BlockRenderer";
 
-
 export default async function AboutusPage() {
   const aboutuspage: AboutPage = await client.fetch(ABOUT_PAGE_QUERY);
   const pageBuilder = aboutuspage?.pageBuilder ?? [];
-
 
   // Safe fallback to prevent app from breaking if database is empty
   const aboutUs = aboutuspage?.aboutUs || {};
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8">
-      <div className="rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
+    <>
+      <div className="mx-auto max-w-5xl px-4 py-12 sm:px-6 lg:px-8 rounded-[2rem] border border-slate-200 bg-white p-8 shadow-sm sm:p-10">
         <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">
           {aboutUs.eyebrow}
         </p>
@@ -88,14 +86,8 @@ export default async function AboutusPage() {
           </div>
         </div>
       </div>
-      <div className="py-12">
-        <NewsForm />
-      </div>
-       {/* ── Page Builder blocks (heroSection, twocolumn, etc.) ── */}
-            {pageBuilder.length > 0 && (
-              <BlockRenderer blocks={pageBuilder} />
-            )}
-      
-    </main>
+      {/* ── Page Builder blocks (heroSection, twocolumn, etc.) ── */}
+      {pageBuilder.length > 0 && <BlockRenderer blocks={pageBuilder} />}
+    </>
   );
 }
