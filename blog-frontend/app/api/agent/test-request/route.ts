@@ -1,12 +1,8 @@
-import { NextResponse } from "next/server"
-import { monitorApi } from "@/agent/runtime/api-monitor"
+import { withApiMonitoring } from "@/agent/runtime/api-monitor"
 
-export async function GET(request: Request) {
-  return monitorApi(request, async () => {
-    return NextResponse.json({
-      success: true,
-      message: "Agent test request",
-      timestamp: Date.now(),
-    })
+export const GET = withApiMonitoring(async () => {
+  return Response.json({
+    success: true,
+    message: "Test request successful",
   })
-}
+})

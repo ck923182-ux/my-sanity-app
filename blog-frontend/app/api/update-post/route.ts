@@ -1,9 +1,9 @@
 import { NextResponse } from "next/server"
 import { writeClient } from "@/lib/sanity-write"
 import { monitorApi } from "@/agent/runtime/api-monitor"
+import { withApiMonitoring } from "@/agent/runtime/api-monitor"
 
-export async function POST(request: Request) {
-  return monitorApi(request, async () => {
+export const POST = withApiMonitoring(async (request) =>   {
     try {
       const body = await request.json()
 
@@ -39,5 +39,5 @@ export async function POST(request: Request) {
         { status: 500 }
       )
     }
-  })
-}
+ 
+})  

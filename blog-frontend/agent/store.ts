@@ -13,6 +13,11 @@ if (!globalForAgent.__agentLogs) {
 export function addRequestLog(log: ApiRequestLog) {
   globalForAgent.__agentLogs!.push(log)
 
+  console.log(
+    "AGENT STORE:",
+    globalForAgent.__agentLogs
+  )
+
   if (globalForAgent.__agentLogs!.length > MAX_LOGS) {
     globalForAgent.__agentLogs!.shift()
   }
