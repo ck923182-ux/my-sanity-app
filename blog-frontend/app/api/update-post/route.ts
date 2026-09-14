@@ -1,15 +1,29 @@
 import { NextResponse } from "next/server"
-import { client } from "@/lib/sanity"
+import { writeClient } from "@/lib/sanity-write"
 import { monitorApi } from "@/agent/runtime/api-monitor"
 
 export async function POST(request: Request) {
   return monitorApi(request, async () => {
     try {
-      const result = await client
-        .patch("715f68a9-c6e4-4ed2-88ea-2e7a54f90f0d")
-        .set({
-          title: "Chandan Kumar Blog ",
-        })
+      const body = await request.json()
+
+      if (!body.id) {
+        return NextResponse.json(
+          { success: false, message: "Missing required field: id" },
+          { status: 400 }
+        )
+      }
+
+      if (!body.title) {
+        return NextResponse.json(
+          { success: false, message: "Missing required field: title" },
+          { status: 400 }
+        )
+      }
+
+      const result = await writeClient
+        .patch(body.id)
+        .set({ title: body.title })
         .commit()
 
       return NextResponse.json({
@@ -18,16 +32,11 @@ export async function POST(request: Request) {
         data: result,
       })
     } catch (error) {
-      console.error(error)
+      console.error("update-post error:", error)
 
       return NextResponse.json(
-        {
-          success: false,
-          message: "Failed to update post",
-        },
-        {
-          status: 500,
-        }
+        { success: false, message: "Failed to update post" },
+        { status: 500 }
       )
     }
   })

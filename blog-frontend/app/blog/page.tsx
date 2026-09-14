@@ -82,3 +82,55 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
 
   );
 }
+
+
+// THis is code for testing full Route Caching 
+// import { client } from "@/lib/sanity";
+// import {
+//   POSTS_QUERY,
+//   POSTS_COUNT_QUERY,
+//   CATEGORIES_QUERY,
+// } from "@/lib/queries";
+
+// export const revalidate = 10;
+
+// export default async function BlogPage() {
+//   console.log(
+//     "🔥 BLOG PAGE RENDERED:",
+//     new Date().toISOString()
+//   );
+
+//   const posts = await client.fetch(
+//     POSTS_QUERY,
+//     {
+//       start: 0,
+//       end: 4,
+//     }
+//   );
+
+//   const totalPost = await client.fetch(
+//     POSTS_COUNT_QUERY
+//   );
+
+//   const categories = await client.fetch(
+//     CATEGORIES_QUERY
+//   );
+
+//   return (
+//     <div>
+//       <h1>Blog</h1>
+
+//       <p>Total Posts: {totalPost}</p>
+
+//       <p>
+//         Categories: {categories.length}
+//       </p>
+
+//       {posts.map((post: any) => (
+//         <div key={post._id}>
+//           {post.title}
+//         </div>
+//       ))}
+//     </div>
+//   );
+// }

@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server"
-import { trackApiRequest } from "./agent/runtime/api-monitor"
+// import { trackApiRequest } from "./agent/runtime/api-monitor"
 
 export async function proxy(request: NextRequest) {
   const pathname = request.nextUrl.pathname
@@ -20,13 +20,13 @@ export async function proxy(request: NextRequest) {
 
   const duration = Math.round(performance.now() - start)
 
-  trackApiRequest({
-    method: request.method,
-    path: pathname,
-    status: response.status,
-    duration,
-    userAgent: request.headers.get("user-agent") ?? undefined,
-  })
+  // trackApiRequest({
+  //   method: request.method,
+  //   path: pathname,
+  //   status: response.status,
+  //   duration,
+  //   userAgent: request.headers.get("user-agent") ?? undefined,
+  // })
 
   return response
 }

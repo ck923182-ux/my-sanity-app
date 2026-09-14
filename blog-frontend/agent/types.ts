@@ -11,10 +11,17 @@ export type ApiRequestLog = {
 export type ApiStats = {
   path: string
   method: string
+
   totalCalls: number
   successCalls: number
   errorCalls: number
+
   averageDuration: number
   maxDuration: number
+
   duplicateCalls: number
+
+  errorRate: number
+  health: "healthy" | "warning" | "critical"
+  issues: string[]
 }
