@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
-import { revalidatePath } from "next/cache";
+import { NextResponse } from "next/server"
+import { revalidatePath } from "next/cache"
+import { withApiMonitoring } from "@/agent/runtime/api-monitor"
 
-export async function POST(request: NextRequest) {
+export const POST = withApiMonitoring(async (request: Request) => {
   try {
-    const secret = request.headers.get("x-sanity-webhook-secret");
+    const secret = request.headers.get("x-sanity-webhook-secret")
 
     if (secret !== process.env.SANITY_WEBHOOK_SECRET) {
       return NextResponse.json(
@@ -11,38 +12,38 @@ export async function POST(request: NextRequest) {
           success: false,
           message: "Unauthorized",
         },
-        { status: 401 },
-      );
+        { status: 401 }
+      )
     }
 
-    const body = await request.json();
+    const body = await request.json()
 
-    console.log("🔥 SANITY WEBHOOK PAYLOAD:");
-    console.log(JSON.stringify(body, null, 2));
+    console.log("🔥 SANITY WEBHOOK PAYLOAD:")
+    console.log(JSON.stringify(body, null, 2))
 
-    // revalidatePath("/");
-    revalidatePath("/blog");
+    // revalidatePath("/")
+    revalidatePath("/blog")
 
     if (body._type === "post" && body.slug?.current) {
-      const slug = body.slug?.current;
+      const slug = body.slug.current
 
-      revalidatePath(`/blog/${slug}`);
-      console.log(`✅ Revalidated post: /blog/${slug}`);
+      revalidatePath(`/blog/${slug}`)
+      console.log(`✅ Revalidated post: /blog/${slug}`)
     }
 
     return NextResponse.json({
       success: true,
       message: "Revalidation successful",
-    });
+    })
   } catch (error) {
-    console.error("Revalidation error:", error);
+    console.error("Revalidation error:", error)
 
     return NextResponse.json(
       {
         success: false,
         message: "Revalidation failed",
       },
-      { status: 500 },
-    );
+      { status: 500 }
+    )
   }
-}
+})

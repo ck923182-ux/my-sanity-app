@@ -11,4 +11,4 @@ export async function GET() {
     totalRequests: logs.length,
     stats,
   })
-}
+} 
