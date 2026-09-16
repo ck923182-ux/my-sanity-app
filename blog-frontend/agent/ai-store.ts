@@ -1,8 +1,11 @@
+
+
 import type { ApiStats } from "./types"
 import type { ApiHealthDiagnosis } from "./ai/api-health-agent"
 
 export type ApiHealthAiRecord = {
   key: string
+
   path: string
   method: string
 
@@ -89,10 +92,10 @@ export function saveAiDiagnosis(
   return record
 }
 
-export function clearAiStore() {
-  store.clear()
-}
-
 export function getAllAiDiagnoses(): ApiHealthAiRecord[] {
   return Array.from(store.values())
+}
+
+export function clearAiStore(): void {
+  store.clear()
 }
