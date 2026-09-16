@@ -4,6 +4,7 @@ import Link from "next/link";
 import PostCard from "../components/PostCard";
 import CategorySidebar from "../components/CategorySidebar";
 import Hero from "../components/Hero";
+import RefreshButton from "../components/RefreshButton";
 
 interface BlogPageProps {
   searchParams: Promise<{
@@ -41,6 +42,7 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
           <p className="text-sm font-semibold uppercase tracking-[0.3em] text-slate-500">Blog</p>
           <h1 className="mt-2 text-3xl font-semibold text-slate-900">All published articles</h1>
           <p className="mt-3 text-slate-600">Browse the full archive of stories, tutorials, and insights.</p>
+          < RefreshButton />
         </div>
 
         <div className="grid gap-8 lg:grid-cols-[1.7fr_0.7fr]">
