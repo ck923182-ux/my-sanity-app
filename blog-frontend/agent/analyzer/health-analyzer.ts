@@ -1,126 +1,172 @@
-import type { ApiRequestLog, ApiStats } from "../types"
-import { detectDuplicateRequests } from "../runtime/duplicate-detector"
+
+import { getRequestLogs } from "@/agent/store"
+
+export type HealthStatus = "healthy" | "warning" | "critical"
+
+export interface HealthIssue {
+  type: string
+  message: string
+  severity: "low" | "medium" | "high"
+}
+
+export interface ApiHealthResult {
+  path: string
+  method: string
+
+  health: HealthStatus
+
+  totalCalls: number
+  successCalls: number
+  errorCalls: number
+
+  averageDuration: number
+  maxDuration: number
+
+  errorRate: number
+  duplicateCalls: number
+
+  issues: HealthIssue[]
+}
 
 export function analyzeApiHealth(
-  logs: ApiRequestLog[]
-): ApiStats[] {
-  const groups = new Map<string, ApiRequestLog[]>()
+  path: string,
+  method?: string
+): ApiHealthResult | null {
+  const logs = getRequestLogs().filter((log) => {
+    if (log.path !== path) {
+      return false
+    }
 
-  for (const log of logs) {
-    const key = `${log.method}:${log.path}`
+    if (method && log.method !== method) {
+      return false
+    }
 
-    const existing = groups.get(key) ?? []
+    return true
+  })
 
-    existing.push(log)
-
-    groups.set(key, existing)
+  if (logs.length === 0) {
+    return null
   }
 
-  const duplicates = detectDuplicateRequests(logs)
+  const totalCalls = logs.length
 
-  const stats: ApiStats[] = []
+  const successCalls = logs.filter(
+    (log) => log.status >= 200 && log.status < 400
+  ).length
 
-  for (const [key, requests] of groups) {
-    const [method, path] = key.split(":")
+  const errorCalls = logs.filter(
+    (log) => log.status >= 400
+  ).length
 
-    const totalCalls = requests.length
+  const durations = logs.map((log) => log.duration)
 
-    const successCalls = requests.filter(
-      (request) =>
-        request.status >= 200 &&
-        request.status < 400
-    ).length
+  const averageDuration =
+    durations.reduce((sum, duration) => sum + duration, 0) /
+    durations.length
 
-    const errorCalls = requests.filter(
-      (request) => request.status >= 400
-    ).length
+  const maxDuration = Math.max(...durations)
 
-    const totalDuration = requests.reduce(
-      (total, request) =>
-        total + request.duration,
-      0
-    )
+  const errorRate = (errorCalls / totalCalls) * 100
 
-    const averageDuration =
-      totalCalls > 0
-        ? Math.round(totalDuration / totalCalls)
-        : 0
+  // --------------------------------
+  // True duplicate request analysis
+  // --------------------------------
+  //
+  // The API monitor is responsible for deciding
+  // whether a request is an actual duplicate.
+  //
+  // The analyzer only counts those decisions.
+  //
+  const duplicateCalls = logs.filter(
+    (log) => log.isDuplicate === true
+  ).length
 
-    const maxDuration =
-      totalCalls > 0
-        ? Math.max(
-            ...requests.map(
-              (request) => request.duration
-            )
-          )
-        : 0
+  const issues: HealthIssue[] = []
 
-    const errorRate =
-      totalCalls > 0
-        ? Math.round(
-            (errorCalls / totalCalls) * 100
-          )
-        : 0
+  // -------------------------
+  // Error rate analysis
+  // -------------------------
 
-    const duplicate = duplicates.find(
-      (item) =>
-        item.method === method &&
-        item.path === path
-    )
-
-    const duplicateCalls =
-      duplicate?.count ?? 0
-
-    const issues: string[] = []
-
-    // Error detection
-    if (errorRate >= 50) {
-      issues.push("High error rate")
-    } else if (errorRate >= 20) {
-      issues.push("Elevated error rate")
-    }
-
-    // Performance detection
-    if (averageDuration >= 2000) {
-      issues.push("Very slow API")
-    } else if (averageDuration >= 1000) {
-      issues.push("Slow API")
-    }
-
-    // Duplicate detection
-    if (duplicateCalls >= 2) {
-      issues.push("Possible duplicate requests")
-    }
-
-    let health: ApiStats["health"] = "healthy"
-
-    if (
-      errorRate >= 50 ||
-      averageDuration >= 2000
-    ) {
-      health = "critical"
-    } else if (
-      errorRate >= 20 ||
-      averageDuration >= 1000 ||
-      duplicateCalls >= 2
-    ) {
-      health = "warning"
-    }
-
-    stats.push({
-      path,
-      method,
-      totalCalls,
-      successCalls,
-      errorCalls,
-      averageDuration,
-      maxDuration,
-      duplicateCalls,
-      errorRate,
-      health,
-      issues,
+  if (errorRate >= 50) {
+    issues.push({
+      type: "high-error-rate",
+      message: `API error rate is ${errorRate.toFixed(1)}%.`,
+      severity: "high",
+    })
+  } else if (errorRate >= 20) {
+    issues.push({
+      type: "elevated-error-rate",
+      message: `API error rate is ${errorRate.toFixed(1)}%.`,
+      severity: "medium",
     })
   }
 
-  return stats
+  // -------------------------
+  // Response time analysis
+  // -------------------------
+
+  if (averageDuration >= 2000) {
+    issues.push({
+      type: "very-slow-api",
+      message: `Average response time is ${Math.round(
+        averageDuration
+      )}ms.`,
+      severity: "high",
+    })
+  } else if (averageDuration >= 1000) {
+    issues.push({
+      type: "slow-api",
+      message: `Average response time is ${Math.round(
+        averageDuration
+      )}ms.`,
+      severity: "medium",
+    })
+  }
+
+  // -------------------------
+  // Duplicate request analysis
+  // -------------------------
+
+  if (duplicateCalls > 0) {
+    issues.push({
+      type: "duplicate-requests",
+      message: `${duplicateCalls} duplicate request(s) detected.`,
+      severity: "low",
+    })
+  }
+
+  // -------------------------
+  // Determine overall health
+  // -------------------------
+
+  let health: HealthStatus = "healthy"
+
+  if (
+    issues.some(
+      (issue) => issue.severity === "high"
+    )
+  ) {
+    health = "critical"
+  } else if (issues.length > 0) {
+    health = "warning"
+  }
+
+  return {
+    path,
+    method: method ?? logs[0].method,
+
+    health,
+
+    totalCalls,
+    successCalls,
+    errorCalls,
+
+    averageDuration: Math.round(averageDuration),
+    maxDuration: Math.round(maxDuration),
+
+    errorRate: Number(errorRate.toFixed(1)),
+    duplicateCalls,
+
+    issues,
+  }
 }

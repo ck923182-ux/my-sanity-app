@@ -11,11 +11,41 @@ import {
   saveAiTask,
 } from "@/agent/ai-store"
 
+import type { ApiStats } from "@/agent/types"
+
 export async function GET() {
   try {
     const logs = getRequestLogs()
 
-    const stats = analyzeApiHealth(logs)
+    // --------------------------------
+    // Analyze each API separately
+    // --------------------------------
+
+    const apiKeys = Array.from(
+      new Set(
+        logs.map(
+          (log) => `${log.method}:${log.path}`
+        )
+      )
+    )
+
+    const stats = apiKeys
+      .map((key) => {
+        const separatorIndex = key.indexOf(":")
+
+        const method = key.slice(0, separatorIndex)
+        const path = key.slice(separatorIndex + 1)
+
+        return analyzeApiHealth(path, method)
+      })
+      .filter(
+        (result): result is NonNullable<typeof result> =>
+          result !== null
+      )
+
+    // --------------------------------
+    // Find problematic API
+    // --------------------------------
 
     const problematicApi = stats.find(
       (api) =>
@@ -31,7 +61,35 @@ export async function GET() {
       })
     }
 
-    const existing = getAiDiagnosis(problematicApi)
+    // --------------------------------
+    // Convert analyzer result to ApiStats
+    // --------------------------------
+
+    const apiStats: ApiStats = {
+      path: problematicApi.path,
+      method: problematicApi.method,
+      health: problematicApi.health,
+
+      totalCalls: problematicApi.totalCalls,
+      successCalls: problematicApi.successCalls,
+      errorCalls: problematicApi.errorCalls,
+
+      averageDuration: problematicApi.averageDuration,
+      maxDuration: problematicApi.maxDuration,
+
+      errorRate: problematicApi.errorRate,
+      duplicateCalls: problematicApi.duplicateCalls,
+
+      issues: problematicApi.issues.map(
+        (issue) => issue.message
+      ),
+    }
+
+    // --------------------------------
+    // Check for existing AI diagnosis
+    // --------------------------------
+
+    const existing = getAiDiagnosis(apiStats)
 
     // Existing diagnosis
     if (existing?.diagnosis) {
@@ -45,7 +103,7 @@ export async function GET() {
       })
     }
 
-    // Existing Manus task is still running
+    // Existing AI task is still running
     if (existing?.taskId) {
       return NextResponse.json({
         success: true,
@@ -57,12 +115,18 @@ export async function GET() {
       })
     }
 
+    // --------------------------------
     // No existing task → create one
+    // --------------------------------
+
     const { taskId } = await createApiHealthTask(
-      problematicApi
+      apiStats
     )
 
-    saveAiTask(problematicApi, taskId)
+    saveAiTask(
+      apiStats,
+      taskId
+    )
 
     return NextResponse.json({
       success: true,

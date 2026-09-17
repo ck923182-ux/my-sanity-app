@@ -6,6 +6,11 @@ export type ApiRequestLog = {
   duration: number
   timestamp: number
   userAgent?: string
+
+   requestFingerprint?: string
+  isDuplicate?: boolean
+  duplicateOf?: string
+  duplicateCount?: number
 }
 
 export type ApiStats = {
@@ -21,7 +26,7 @@ export type ApiStats = {
 
   duplicateCalls: number
 
-  errorRate: number
+  errorRate: number 
   health: "healthy" | "warning" | "critical"
   issues: string[]
 }
