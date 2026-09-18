@@ -2,6 +2,12 @@
 
 import { useEffect, useState } from "react";
 
+type ApiIssue = {
+  type: string;
+  message: string;
+  severity: "low" | "medium" | "high" | "critical" | string;
+};
+
 type ApiStat = {
   path: string;
   method: string;
@@ -13,7 +19,7 @@ type ApiStat = {
   maxDuration: number;
   duplicateCalls: number;
   errorRate: number;
-  issues: string[];
+  issues: ApiIssue[];
 };
 
 type StatsResponse = {
@@ -39,6 +45,25 @@ function HealthBadge({ health }: { health: string }) {
   );
 }
 
+function SeverityBadge({ severity }: { severity: string }) {
+  const styles: Record<string, string> = {
+    low: "bg-blue-100 text-blue-700",
+    medium: "bg-yellow-100 text-yellow-700",
+    high: "bg-orange-100 text-orange-700",
+    critical: "bg-red-100 text-red-700",
+  };
+
+  return (
+    <span
+      className={`rounded-full px-2 py-1 text-[10px] font-semibold uppercase ${
+        styles[severity] ?? "bg-slate-100 text-slate-600"
+      }`}
+    >
+      {severity}
+    </span>
+  );
+}
+
 export default function ApiHealthPage() {
   const [data, setData] = useState<StatsResponse | null>(null);
   const [loading, setLoading] = useState(true);
@@ -54,7 +79,8 @@ export default function ApiHealthPage() {
         throw new Error("Failed to fetch API stats");
       }
 
-      const result = await response.json();
+      const result: StatsResponse = await response.json();
+
       setData(result);
       setError("");
     } catch (err) {
@@ -93,6 +119,11 @@ export default function ApiHealthPage() {
 
   const stats = data?.stats ?? [];
 
+  const totalIssues = stats.reduce(
+    (total, api) => total + api.issues.length,
+    0
+  );
+
   return (
     <div className="space-y-6">
       {/* Page Header */}
@@ -109,7 +140,9 @@ export default function ApiHealthPage() {
       {/* Summary */}
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Monitored APIs</p>
+          <p className="text-sm text-slate-500">
+            Monitored APIs
+          </p>
 
           <p className="mt-2 text-3xl font-bold text-slate-900">
             {stats.length}
@@ -117,7 +150,9 @@ export default function ApiHealthPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Total Requests</p>
+          <p className="text-sm text-slate-500">
+            Total Requests
+          </p>
 
           <p className="mt-2 text-3xl font-bold text-slate-900">
             {data?.totalRequests ?? 0}
@@ -125,13 +160,12 @@ export default function ApiHealthPage() {
         </div>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5">
-          <p className="text-sm text-slate-500">Issues Detected</p>
+          <p className="text-sm text-slate-500">
+            Issues Detected
+          </p>
 
           <p className="mt-2 text-3xl font-bold text-slate-900">
-            {stats.reduce(
-              (total, api) => total + api.issues.length,
-              0
-            )}
+            {totalIssues}
           </p>
         </div>
       </div>
@@ -154,7 +188,7 @@ export default function ApiHealthPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1000px] text-left">
+            <table className="w-full min-w-[1100px] text-left">
               <thead className="bg-slate-50">
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <th className="px-6 py-4">API</th>
@@ -176,6 +210,7 @@ export default function ApiHealthPage() {
                     key={`${api.method}-${api.path}`}
                     className="border-b border-slate-100 last:border-0 hover:bg-slate-50"
                   >
+                    {/* API */}
                     <td className="px-6 py-5">
                       <div>
                         <p className="font-medium text-slate-900">
@@ -188,52 +223,73 @@ export default function ApiHealthPage() {
                       </div>
                     </td>
 
+                    {/* Health */}
                     <td className="px-6 py-5">
                       <HealthBadge health={api.health} />
                     </td>
 
+                    {/* Calls */}
                     <td className="px-6 py-5 font-medium">
                       {api.totalCalls}
                     </td>
 
+                    {/* Success */}
                     <td className="px-6 py-5 text-green-600">
                       {api.successCalls}
                     </td>
 
+                    {/* Errors */}
                     <td className="px-6 py-5 text-red-600">
                       {api.errorCalls}
                     </td>
 
+                    {/* Average Duration */}
                     <td className="px-6 py-5">
                       {api.averageDuration} ms
                     </td>
 
+                    {/* Max Duration */}
                     <td className="px-6 py-5">
                       {api.maxDuration} ms
                     </td>
 
+                    {/* Duplicate Calls */}
                     <td className="px-6 py-5">
                       {api.duplicateCalls}
                     </td>
 
+                    {/* Error Rate */}
                     <td className="px-6 py-5">
                       {api.errorRate}%
                     </td>
 
+                    {/* Issues */}
                     <td className="px-6 py-5">
                       {api.issues.length > 0 ? (
-                        <div className="space-y-1">
+                        <div className="min-w-[220px] space-y-2">
                           {api.issues.map((issue, index) => (
                             <div
-                              key={`${issue}-${index}`}
-                              className="text-xs font-medium text-orange-600"
+                              key={`${issue.type}-${index}`}
+                              className="rounded-lg border border-orange-100 bg-orange-50 p-3"
                             >
-                              {issue}
+                              <div className="flex items-start justify-between gap-2">
+                                <p className="text-xs font-semibold text-orange-800">
+                                  {issue.message}
+                                </p>
+
+                                <SeverityBadge
+                                  severity={issue.severity}
+                                />
+                              </div>
+
+                              <p className="mt-1 text-[10px] font-medium uppercase tracking-wide text-orange-500">
+                                {issue.type}
+                              </p>
                             </div>
                           ))}
                         </div>
                       ) : (
-                        <span className="text-xs text-green-600">
+                        <span className="text-xs font-medium text-green-600">
                           No issues
                         </span>
                       )}

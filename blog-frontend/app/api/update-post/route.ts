@@ -26,10 +26,24 @@ export const POST = withApiMonitoring(async (request) => {
       )
     }
 
+   const sanityStart = performance.now();
+
     const result = await writeClient
       .patch(body.id)
       .set({ title: body.title })
-      .commit()
+      .commit();
+
+    const sanityDuration = Math.round(
+      performance.now() - sanityStart
+    );
+
+    console.log(
+      "SOURCE ANALYSIS:",
+      {
+        operation: "Sanity patch commit",
+        duration: sanityDuration,
+      }
+    );
 
     return NextResponse.json({
       success: true,

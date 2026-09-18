@@ -11,19 +11,51 @@ function apiPathToRouteCandidates(apiPath: string): string[] {
     return []
   }
 
-  const segments = cleanPath.split("/").filter(Boolean)
+  const segments = cleanPath.split("/")
 
-  return [
-    path.join("app", ...segments, "route.ts"),
-    path.join("app", ...segments, "route.js"),
-    path.join("app", ...segments, "route.tsx"),
-    path.join("app", ...segments, "route.jsx"),
-  ]
+  // Remove "api" because we already search inside app/api
+  if (segments[0] === "api") {
+    segments.shift()
+  }
+
+  const candidates: string[] = []
+
+  // Example:
+  // /api/update-post
+  //
+  // app/api/update-post/route.ts
+
+  candidates.push(
+    path.join(
+      process.cwd(),
+      "app",
+      "api",
+      ...segments,
+      "route.ts"
+    )
+  )
+
+  // Also support route.js
+  candidates.push(
+    path.join(
+      process.cwd(),
+      "app",
+      "api",
+      ...segments,
+      "route.js"
+    )
+  )
+
+  return candidates
 }
 
-export async function GET(request: Request) {
+export async function GET(
+  request: Request
+) {
   try {
-    const { searchParams } = new URL(request.url)
+    const { searchParams } = new URL(
+      request.url
+    )
 
     const apiPath = searchParams.get("path")
 
@@ -31,37 +63,38 @@ export async function GET(request: Request) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing required query parameter: path",
+          message:
+            "Missing API path. Example: ?path=/api/update-post",
         },
         { status: 400 }
       )
     }
 
-    if (!apiPath.startsWith("/api/")) {
-      return NextResponse.json(
-        {
-          success: false,
-          message: "Only /api/* paths are allowed",
-        },
-        { status: 400 }
-      )
-    }
+    const candidates =
+      apiPathToRouteCandidates(apiPath)
 
-    const projectRoot = process.cwd()
+    for (const filePath of candidates) {
+      if (fs.existsSync(filePath)) {
+        const source = fs.readFileSync(
+          filePath,
+          "utf-8"
+        )
 
-    const candidates = apiPathToRouteCandidates(apiPath)
-
-    for (const relativePath of candidates) {
-      const absolutePath = path.join(projectRoot, relativePath)
-
-      if (fs.existsSync(absolutePath)) {
-        const sourceCode = fs.readFileSync(absolutePath, "utf-8")
+        const relativePath =
+          path.relative(
+            process.cwd(),
+            filePath
+          )
 
         return NextResponse.json({
           success: true,
           found: true,
-          routePath: relativePath,
-          sourceCode,
+          apiPath,
+          filePath: relativePath.replace(
+            /\\/g,
+            "/"
+          ),
+          source,
         })
       }
     }
@@ -69,17 +102,30 @@ export async function GET(request: Request) {
     return NextResponse.json({
       success: true,
       found: false,
-      routePath: null,
-      sourceCode: null,
-      message: `No route source found for ${apiPath}`,
+      apiPath,
+      message:
+        "Source file could not be found.",
+      searchedPaths: candidates.map(
+        (filePath) =>
+          path
+            .relative(
+              process.cwd(),
+              filePath
+            )
+            .replace(/\\/g, "/")
+      ),
     })
   } catch (error) {
-    console.error("source-scan error:", error)
+    console.error(
+      "Source scan error:",
+      error
+    )
 
     return NextResponse.json(
       {
         success: false,
-        message: "Failed to scan API source",
+        message:
+          "Failed to scan API source.",
       },
       { status: 500 }
     )
