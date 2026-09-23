@@ -1,32 +1,56 @@
+
+export type OperationTiming = {
+  name: string
+  duration: number
+}
+
 export type ApiRequestLog = {
   id: string
+
   method: string
+
   path: string
+
   status: number
+
   duration: number
+
   timestamp: number
+
   userAgent?: string
 
-   requestFingerprint?: string
+  requestFingerprint?: string
+
   isDuplicate?: boolean
+
   duplicateOf?: string
+
   duplicateCount?: number
+
+  operations?: OperationTiming[]
 }
 
 export type ApiStats = {
   path: string
+
   method: string
 
   totalCalls: number
+
   successCalls: number
+
   errorCalls: number
 
   averageDuration: number
+
   maxDuration: number
 
   duplicateCalls: number
 
-  errorRate: number 
+  errorRate: number
+
   health: "healthy" | "warning" | "critical"
+
   issues: string[]
 }
+

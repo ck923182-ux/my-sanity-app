@@ -1,5 +1,6 @@
 export type SourceOperation = {
   name: string;
+
   type:
     | "database"
     | "external-api"
@@ -7,7 +8,9 @@ export type SourceOperation = {
     | "response"
     | "validation"
     | "unknown";
+
   line: number;
+
   code: string;
 };
 
@@ -20,7 +23,9 @@ function getLineNumber(
   source: string,
   index: number
 ): number {
-  return source.slice(0, index).split("\n").length;
+  return source
+    .slice(0, index)
+    .split("\n").length;
 }
 
 export function analyzeSource(
@@ -34,48 +39,67 @@ export function analyzeSource(
     name: string;
     type: SourceOperation["type"];
   }[] = [
+    // Request
     {
       regex: /request\.json\s*\(/g,
       name: "request.json()",
       type: "request",
     },
+
     {
       regex: /request\.formData\s*\(/g,
       name: "request.formData()",
       type: "request",
     },
+
+    // External API
     {
       regex: /fetch\s*\(/g,
       name: "fetch()",
       type: "external-api",
     },
+
+    // Database / Sanity
     {
       regex: /\.patch\s*\(/g,
       name: ".patch()",
       type: "database",
     },
+
     {
       regex: /\.create\s*\(/g,
       name: ".create()",
       type: "database",
     },
+
     {
       regex: /\.createIfNotExists\s*\(/g,
       name: ".createIfNotExists()",
       type: "database",
     },
+
     {
       regex: /\.delete\s*\(/g,
       name: ".delete()",
       type: "database",
     },
+
     {
-        regex: /(?<!Next)Response\.json\s*\(/g,
-        name: "Response.json()",
-        type: "response",
+      regex: /\.commit\s*\(/g,
+      name: ".commit()",
+      type: "database",
     },
+
+    // Next.js response
     {
-      regex: /Response\.json\s*\(/g,
+      regex: /NextResponse\.json\s*\(/g,
+      name: "NextResponse.json()",
+      type: "response",
+    },
+
+    // Standard Response
+    {
+      regex: /(?<!NextResponse)\bResponse\.json\s*\(/g,
       name: "Response.json()",
       type: "response",
     },
@@ -84,19 +108,25 @@ export function analyzeSource(
   for (const pattern of patterns) {
     let match: RegExpExecArray | null;
 
-    while ((match = pattern.regex.exec(source)) !== null) {
+    while (
+      (match = pattern.regex.exec(source)) !== null
+    ) {
       const line = getLineNumber(
         source,
         match.index
       );
 
       const lineStart =
-        source.lastIndexOf("\n", match.index) + 1;
+        source.lastIndexOf(
+          "\n",
+          match.index
+        ) + 1;
 
-      const lineEnd = source.indexOf(
-        "\n",
-        match.index
-      );
+      const lineEnd =
+        source.indexOf(
+          "\n",
+          match.index
+        );
 
       const code = source
         .slice(
@@ -113,7 +143,7 @@ export function analyzeSource(
         line,
         code,
       });
-    }       
+    }
   }
 
   operations.sort(

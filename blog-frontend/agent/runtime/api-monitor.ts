@@ -64,22 +64,42 @@
 
 //   return wrappedHandler as T
 // } 
+
 import { addRequestLog, getRequestLogs } from "../store"
+
+import {
+  measureOperation,
+  type OperationTiming,
+} from "./operation-monitor"
 
 type ApiRouteHandler = (
   request: Request,
-  context?: unknown
+  context?: unknown,
+  operations?: OperationRecorder
 ) => Response | Promise<Response>
 
 const DUPLICATE_WINDOW_MS = 5000
 
-async function getRequestBody(request: Request): Promise<string> {
-  if (request.method === "GET" || request.method === "HEAD") {
+export type OperationRecorder = {
+  measure: <T>(
+    name: string,
+    operation: () => Promise<T>
+  ) => Promise<T>
+}
+
+async function getRequestBody(
+  request: Request
+): Promise<string> {
+  if (
+    request.method === "GET" ||
+    request.method === "HEAD"
+  ) {
     return ""
   }
 
   try {
     const clonedRequest = request.clone()
+
     return await clonedRequest.text()
   } catch {
     return ""
@@ -120,7 +140,8 @@ function detectDuplicate(
     }
   }
 
-  const firstMatchingRequest = recentMatchingLogs[0]
+  const firstMatchingRequest =
+    recentMatchingLogs[0]
 
   return {
     isDuplicate: true,
@@ -131,25 +152,50 @@ function detectDuplicate(
 
 export async function monitorApi<T extends Response>(
   request: Request,
-  handler: () => Promise<T>
+  handler: (
+    operations: OperationRecorder
+  ) => Promise<T>
 ): Promise<T> {
   const start = performance.now()
   const timestamp = Date.now()
 
-  const requestBody = await getRequestBody(request)
+  const requestBody =
+    await getRequestBody(request)
 
-  const requestFingerprint = createRequestFingerprint(
-    request,
-    requestBody
-  )
+  const requestFingerprint =
+    createRequestFingerprint(
+      request,
+      requestBody
+    )
 
-  const duplicateInfo = detectDuplicate(
-    requestFingerprint,
-    timestamp
-  )
+  const duplicateInfo =
+    detectDuplicate(
+      requestFingerprint,
+      timestamp
+    )
+
+  const operationTimings: OperationTiming[] = []
+
+  const operations: OperationRecorder = {
+    measure: async <T>(
+      name: string,
+      operation: () => Promise<T>
+    ): Promise<T> => {
+      const { result, timing } =
+        await measureOperation(
+          name,
+          operation
+        )
+
+      operationTimings.push(timing)
+
+      return result
+    },
+  }
 
   try {
-    const response = await handler()
+    const response =
+      await handler(operations)
 
     const duration = Math.round(
       performance.now() - start
@@ -162,16 +208,30 @@ export async function monitorApi<T extends Response>(
       status: response.status,
       duration,
       timestamp,
+
       userAgent:
-        request.headers.get("user-agent") ?? undefined,
+        request.headers.get("user-agent") ??
+        undefined,
 
       requestFingerprint,
-      isDuplicate: duplicateInfo.isDuplicate,
-      duplicateOf: duplicateInfo.duplicateOf,
-      duplicateCount: duplicateInfo.duplicateCount,
+
+      isDuplicate:
+        duplicateInfo.isDuplicate,
+
+      duplicateOf:
+        duplicateInfo.duplicateOf,
+
+      duplicateCount:
+        duplicateInfo.duplicateCount,
+
+      operations:
+        operationTimings,
     }
 
-    console.log("API MONITOR LOG:", log)
+    console.log(
+      "API MONITOR LOG:",
+      log
+    )
 
     addRequestLog(log)
 
@@ -188,16 +248,30 @@ export async function monitorApi<T extends Response>(
       status: 500,
       duration,
       timestamp,
+
       userAgent:
-        request.headers.get("user-agent") ?? undefined,
+        request.headers.get("user-agent") ??
+        undefined,
 
       requestFingerprint,
-      isDuplicate: duplicateInfo.isDuplicate,
-      duplicateOf: duplicateInfo.duplicateOf,
-      duplicateCount: duplicateInfo.duplicateCount,
+
+      isDuplicate:
+        duplicateInfo.isDuplicate,
+
+      duplicateOf:
+        duplicateInfo.duplicateOf,
+
+      duplicateCount:
+        duplicateInfo.duplicateCount,
+
+      operations:
+        operationTimings,
     }
 
-    console.log("API MONITOR ERROR:", log)
+    console.log(
+      "API MONITOR ERROR:",
+      log
+    )
 
     addRequestLog(log)
 
@@ -205,7 +279,9 @@ export async function monitorApi<T extends Response>(
   }
 }
 
-export function withApiMonitoring<T extends ApiRouteHandler>(
+export function withApiMonitoring<
+  T extends ApiRouteHandler
+>(
   handler: T
 ): T {
   const wrappedHandler = async (
@@ -214,9 +290,13 @@ export function withApiMonitoring<T extends ApiRouteHandler>(
   ) => {
     return monitorApi(
       request,
-      () =>
+      (operations) =>
         Promise.resolve(
-          handler(request, context)
+          handler(
+            request,
+            context,
+            operations
+          )
         )
     )
   }
