@@ -1,18 +1,20 @@
-
 import { NextResponse } from "next/server"
 import { client } from "@/lib/sanity"
-import { withApiMonitoring } from "@/agent/runtime/api-monitor"
+import { monitorApi } from "@/agent/runtime/api-monitor"
 
-export const POST = withApiMonitoring(
-  async (_request, _context, operations) => {
+export async function POST(request: Request) {
+  return monitorApi(request, async (operations) => {
     try {
-      const result = await operations!.measure(
+      const result = await operations.measure(
         "sanity.patch.commit",
         async () => {
           return await client
-            .patch("bd73e4b0-ed73-4997-b447-df0f4a391163")
+            .patch(
+              "bd73e4b0-ed73-4997-b447-df0f4a391163"
+            )
             .set({
-              title: "Complete React Tutorial for Beginners",
+              title:
+                "Complete React Tutorial for Beginners",
             })
             .commit()
         }
@@ -36,6 +38,5 @@ export const POST = withApiMonitoring(
         }
       )
     }
-  }
-)
-
+  })
+}
