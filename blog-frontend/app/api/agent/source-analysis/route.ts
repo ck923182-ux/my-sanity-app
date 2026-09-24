@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
@@ -32,7 +31,6 @@ function apiPathToRouteCandidates(
       ...segments,
       "route.ts"
     ),
-
     path.join(
       process.cwd(),
       "app",
@@ -41,6 +39,73 @@ function apiPathToRouteCandidates(
       "route.js"
     ),
   ]
+}
+
+function mapBottleneckToSource(
+  bottleneckName: string,
+  operations: {
+    name: string
+    type: string
+    line: number
+    code: string
+  }[]
+) {
+  const normalizedName =
+    bottleneckName.toLowerCase()
+
+  const matches = operations.filter(
+    (operation) => {
+      const operationName =
+        operation.name.toLowerCase()
+
+      if (
+        normalizedName.includes("patch") &&
+        normalizedName.includes("commit")
+      ) {
+        return (
+          operationName.includes("patch") ||
+          operationName.includes("commit")
+        )
+      }
+
+      if (
+        normalizedName.includes("fetch")
+      ) {
+        return operationName.includes("fetch")
+      }
+
+      if (
+        normalizedName.includes("request.json")
+      ) {
+        return operationName.includes(
+          "request.json"
+        )
+      }
+
+      if (
+        normalizedName.includes(
+          "formdata"
+        )
+      ) {
+        return operationName.includes(
+          "formdata"
+        )
+      }
+
+      return operationName === normalizedName
+    }
+  )
+
+  if (matches.length === 0) {
+    return null
+  }
+  return {
+      operation: bottleneckName,
+      lines: matches.map(
+        (operation) => operation.line
+      ),
+      matches,
+    }
 }
 
 export async function GET(
@@ -91,8 +156,6 @@ export async function GET(
           relativePath
         )
 
-      // Find the latest runtime log
-      // for this API endpoint.
       const logs = getRequestLogs()
 
       const matchingLogs = logs
@@ -120,29 +183,59 @@ export async function GET(
           )
       }
 
+      let sourceLocation:
+      | {
+          operation: string
+          filePath: string
+          lines: number[]
+          matches: {
+            name: string
+            type: string
+            line: number
+            code: string
+          }[]
+        }
+      | null = null
+
+      if (bottleneck) {
+        const mappedSource =
+          mapBottleneckToSource(
+            bottleneck.name,
+            analysis.operations
+          )
+
+        if (mappedSource) {
+          sourceLocation = {
+            ...mappedSource,
+            filePath: relativePath,
+          }
+        }
+      }
+
       return NextResponse.json({
         success: true,
         found: true,
+
         apiPath,
+
         ...analysis,
 
         runtime: latestLog
           ? {
               duration:
                 latestLog.duration,
-
               status:
                 latestLog.status,
-
               timestamp:
                 latestLog.timestamp,
-
               operations:
                 latestLog.operations,
             }
           : null,
 
         bottleneck,
+
+        sourceLocation,
       })
     }
 

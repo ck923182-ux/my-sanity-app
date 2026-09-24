@@ -34,3 +34,12 @@ export function detectBottleneck(
     percentage,
   }
 }
+
+
+//API Request
+ //  ↓
+// Runtime Operation Timing
+//    ↓
+// Bottleneck Detection
+//    ↓
+// Source Analysis
