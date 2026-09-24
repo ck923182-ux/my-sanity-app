@@ -2,7 +2,10 @@ import { NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
 
-import { analyzeSource } from "@/agent/analyzer/source-analyzer"
+import {
+  analyzeSource,
+  extractSourceContext,
+} from "@/agent/analyzer/source-analyzer"
 import { getRequestLogs } from "@/agent/store"
 import { detectBottleneck } from "@/agent/analyzer/bottleneck-analyzer"
 
@@ -197,47 +200,57 @@ export async function GET(
         }
       | null = null
 
-      if (bottleneck) {
-        const mappedSource =
-          mapBottleneckToSource(
-            bottleneck.name,
-            analysis.operations
-          )
+    let sourceContext = null
 
-        if (mappedSource) {
-          sourceLocation = {
-            ...mappedSource,
-            filePath: relativePath,
-          }
+    if (bottleneck) {
+      const mappedSource =
+        mapBottleneckToSource(
+          bottleneck.name,
+          analysis.operations
+        )
+
+      if (mappedSource) {
+        sourceLocation = {
+          ...mappedSource,
+          filePath: relativePath,
         }
+
+        sourceContext =
+          extractSourceContext(
+            source,
+            mappedSource.lines,
+            3
+          )
       }
-
-      return NextResponse.json({
-        success: true,
-        found: true,
-
-        apiPath,
-
-        ...analysis,
-
-        runtime: latestLog
-          ? {
-              duration:
-                latestLog.duration,
-              status:
-                latestLog.status,
-              timestamp:
-                latestLog.timestamp,
-              operations:
-                latestLog.operations,
-            }
-          : null,
-
-        bottleneck,
-
-        sourceLocation,
-      })
     }
+
+          return NextResponse.json({
+            success: true,
+            found: true,
+
+            apiPath,
+
+            ...analysis,
+
+            runtime: latestLog
+              ? {
+                  duration:
+                    latestLog.duration,
+                  status:
+                    latestLog.status,
+                  timestamp:
+                    latestLog.timestamp,
+                  operations:
+                    latestLog.operations,
+                }
+              : null,
+
+            bottleneck,
+
+            sourceLocation,
+            sourceContext,
+          })
+        }
 
     return NextResponse.json({
       success: true,

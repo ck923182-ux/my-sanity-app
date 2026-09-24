@@ -155,3 +155,48 @@ export function analyzeSource(
     operations,
   };
 }
+
+export type SourceContext = {
+  startLine: number
+  endLine: number
+  code: string
+}
+
+export function extractSourceContext(
+  source: string,
+  lines: number[],
+  radius: number = 3
+): SourceContext | null {
+  if (lines.length === 0) {
+    return null
+  }
+
+  const sourceLines = source.split("\n")
+
+  const minLine = Math.min(...lines)
+  const maxLine = Math.max(...lines)
+
+  const startLine = Math.max(
+    1,
+    minLine - radius
+  )
+
+  const endLine = Math.min(
+    sourceLines.length,
+    maxLine + radius
+  )
+
+  const code = sourceLines
+    .slice(startLine - 1, endLine)
+    .map(
+      (line, index) =>
+        `${startLine + index}: ${line}`
+    )
+    .join("\n")
+
+  return {
+    startLine,
+    endLine,
+    code,
+  }
+}
