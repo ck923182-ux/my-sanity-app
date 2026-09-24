@@ -1,64 +1,41 @@
+
 import { NextResponse } from "next/server"
-import { writeClient } from "@/lib/sanity-write"
+import { client } from "@/lib/sanity"
 import { withApiMonitoring } from "@/agent/runtime/api-monitor"
 
-export const POST = withApiMonitoring(async (request) => {
-  try {
-    const body = await request.json()
+export const POST = withApiMonitoring(
+  async (_request, _context, operations) => {
+    try {
+      const result = await operations!.measure(
+        "sanity.patch.commit",
+        async () => {
+          return await client
+            .patch("bd73e4b0-ed73-4997-b447-df0f4a391163")
+            .set({
+              title: "Complete React Tutorial for Beginners",
+            })
+            .commit()
+        }
+      )
 
-    if (!body.id) {
+      return NextResponse.json({
+        success: true,
+        message: "Post updated successfully",
+        data: result,
+      })
+    } catch (error) {
+      console.error(error)
+
       return NextResponse.json(
         {
           success: false,
-          message: "Missing required field: id",
+          message: "Failed to update post",
         },
-        { status: 400 }
-      )
-    }
-
-    if (!body.title) {
-      return NextResponse.json(
         {
-          success: false,
-          message: "Missing required field: title",
-        },
-        { status: 400 }
+          status: 500,
+        }
       )
     }
-
-   const sanityStart = performance.now();
-
-    const result = await writeClient
-      .patch(body.id)
-      .set({ title: body.title })
-      .commit();
-
-    const sanityDuration = Math.round(
-      performance.now() - sanityStart
-    );
-
-    console.log(
-      "SOURCE ANALYSIS:",
-      {
-        operation: "Sanity patch commit",
-        duration: sanityDuration,
-      }
-    );
-
-    return NextResponse.json({
-      success: true,
-      message: "Post updated successfully",
-      data: result,
-    })
-  } catch (error) {
-    console.error("update-post error:", error)
-
-    return NextResponse.json(
-      {
-        success: false,
-        message: "Failed to update post",
-      },
-      { status: 500 }
-    )
   }
-})
+)
+
