@@ -26,7 +26,7 @@ async function BlogContent({ page }: { page: string }) {
   const end = start + POST_PER_PAGE;
 
   // Temporary delay so we can clearly observe Suspense/Streaming.
-  await new Promise((resolve) => setTimeout(resolve, 5000));
+  // await new Promise((resolve) => setTimeout(resolve, 5000));
 
   const posts = await client.fetch(
     POSTS_QUERY,
@@ -129,9 +129,9 @@ export default async function BlogPage({ searchParams }: BlogPageProps) {
       </div>
 
       {/* Slow part is now inside Suspense */}
-      <Suspense fallback={<BlogLoading />}>
+      {/* <Suspense fallback={<BlogLoading />}> */}
         <BlogContent page={page} />
-      </Suspense>
+      {/* </Suspense>  */}
     </main>
   );
 }

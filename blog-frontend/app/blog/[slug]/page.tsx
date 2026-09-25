@@ -5,6 +5,7 @@ import Image from "next/image";
 import { urlFor } from "@/lib/image";
 import PostCard from "@/app/components/PostCard";
 import PortableTextRenderer from "@/app/components/PortableText";
+import { notFound } from "next/navigation";
 interface Props {
   params: Promise<{
     slug: string;
@@ -24,12 +25,9 @@ export default async function BlogPage({ params }: Props) {
   }
 );
   if (!post) {
-    return (
-      <main className="mx-auto max-w-3xl px-4 py-16 sm:px-6 lg:px-8">
-        <h1 className="text-3xl font-semibold text-slate-900">Post not found</h1>
-        <p className="mt-4 text-slate-600">The article you are looking for does not exist.</p>
-      </main>
-    );
+    
+       notFound();
+    
   }
 const relatedPosts = await client.fetch(RELATED_POSTS_QUERY, {
   categoryId: post.category._id,
