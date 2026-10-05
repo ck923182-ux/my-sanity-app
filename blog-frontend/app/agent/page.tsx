@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -37,10 +38,82 @@ interface LogsResponse {
   logs: RequestLog[];
 }
 
+interface InvestigationResponse {
+  success: boolean;
+  apiPath: string;
+  sourceAnalysis?: {
+    filePath?: string;
+    runtime?: {
+      duration: number;
+      status: number;
+    } | null;
+    bottleneck?: {
+      name: string;
+      duration: number;
+      percentage: number;
+    } | null;
+    rootCause?: {
+      likelyCause: string;
+      explanation: string;
+      duration: number;
+      bottleneckDuration: number;
+      sourceLines: number[];
+    } | null;
+    developerRecommendation?: {
+      priority: "high" | "medium" | "low";
+      title: string;
+      recommendation: string;
+      reason: string;
+      sourceLines: number[];
+    } | null;
+    sourceContext?: {
+      startLine: number;
+      endLine: number;
+      code: string;
+    } | null;
+  };
+  ai?: {
+    taskId: string;
+    status: "processing";
+  };
+  message?: string;
+}
+
+interface InvestigationAiResponse {
+  success: boolean;
+  taskId: string;
+  status: "processing" | "completed";
+  ai?: {
+    rootCause: string;
+    evidence: string;
+    source: string;
+    recommendation: string;
+    assumptions: string;
+  } | null;
+  message?: string;
+}
+
 export default function AgentDashboard() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [logs, setLogs] = useState<LogsResponse | null>(null);
   const [loading, setLoading] = useState(true);
+
+  const [investigationPath, setInvestigationPath] =
+    useState("/api/update-post");
+
+  const [investigating, setInvestigating] =
+    useState(false);
+
+  const [investigationError, setInvestigationError] =
+    useState("");
+
+  const [investigation, setInvestigation] =
+    useState<InvestigationResponse | null>(null);
+
+  const [aiDiagnosis, setAiDiagnosis] =
+    useState<InvestigationAiResponse["ai"] | null>(
+      null
+    );
 
   const loadDashboard = useCallback(async () => {
     try {
@@ -79,6 +152,107 @@ export default function AgentDashboard() {
     return () => clearInterval(interval);
   }, [loadDashboard]);
 
+  const runInvestigation = async () => {
+    const path = investigationPath.trim();
+
+    if (!path) {
+      setInvestigationError("API path is required.");
+      return;
+    }
+
+    setInvestigating(true);
+    setInvestigationError("");
+    setInvestigation(null);
+    setAiDiagnosis(null);
+
+    try {
+      const response = await fetch(
+        "/api/agent/investigate",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            path,
+          }),
+        }
+      );
+
+      const data =
+        (await response.json()) as InvestigationResponse;
+
+      if (!response.ok || !data.success) {
+        throw new Error(
+          data.message ??
+            "Failed to start investigation."
+        );
+      }
+
+      setInvestigation(data);
+
+      const taskId = data.ai?.taskId;
+
+      if (!taskId) {
+        setInvestigating(false);
+        return;
+      }
+
+      let completed = false;
+
+      for (let attempt = 0; attempt < 20; attempt++) {
+        await new Promise((resolve) =>
+          setTimeout(resolve, 2000)
+        );
+
+        const aiResponse = await fetch(
+          `/api/agent/investigate/${taskId}`,
+          {
+            cache: "no-store",
+          }
+        );
+
+        const aiData =
+          (await aiResponse.json()) as InvestigationAiResponse;
+
+        if (!aiResponse.ok || !aiData.success) {
+          throw new Error(
+            aiData.message ??
+              "Failed to retrieve AI diagnosis."
+          );
+        }
+
+        if (
+          aiData.status === "completed" &&
+          aiData.ai
+        ) {
+          setAiDiagnosis(aiData.ai);
+          completed = true;
+          break;
+        }
+      }
+
+      if (!completed) {
+        setInvestigationError(
+          "AI analysis is still processing. Please try again shortly."
+        );
+      }
+    } catch (error) {
+      console.error(
+        "Investigation error:",
+        error
+      );
+
+      setInvestigationError(
+        error instanceof Error
+          ? error.message
+          : "Failed to investigate API."
+      );
+    } finally {
+      setInvestigating(false);
+    }
+  };
+
   const apiStats = stats?.stats ?? [];
   const requestLogs = logs?.logs ?? [];
 
@@ -101,7 +275,8 @@ export default function AgentDashboard() {
     apiStats.length > 0
       ? Math.round(
           apiStats.reduce(
-            (total, api) => total + api.averageDuration,
+            (total, api) =>
+              total + api.averageDuration,
             0
           ) / apiStats.length
         )
@@ -171,6 +346,230 @@ export default function AgentDashboard() {
           icon="◷"
         />
       </div>
+
+      {/* AI Investigation */}
+      <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="border-b border-slate-200 px-5 py-4">
+          <div>
+            <h3 className="font-semibold text-slate-900">
+              AI Investigation
+            </h3>
+
+            <p className="mt-1 text-xs text-slate-500">
+              Analyze an API bottleneck using runtime, source and AI evidence.
+            </p>
+          </div>
+        </div>
+
+        <div className="space-y-6 p-5">
+          <div className="flex flex-col gap-3 sm:flex-row">
+            <input
+              type="text"
+              value={investigationPath}
+              onChange={(event) =>
+                setInvestigationPath(
+                  event.target.value
+                )
+              }
+              placeholder="/api/update-post"
+              className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
+            />
+
+            <button
+              type="button"
+              onClick={runInvestigation}
+              disabled={investigating}
+              className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {investigating
+                ? "Investigating..."
+                : "Investigate API"}
+            </button>
+          </div>
+
+          {investigationError && (
+            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+              {investigationError}
+            </div>
+          )}
+
+          {investigating && (
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+              <div className="flex items-center gap-3">
+                <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
+
+                <div>
+                  <p className="text-sm font-medium text-slate-800">
+                    AI investigation in progress
+                  </p>
+
+                  <p className="mt-1 text-xs text-slate-500">
+                    Analyzing source evidence and waiting for Manus AI.
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {investigation?.sourceAnalysis && (
+            <div className="space-y-5">
+              <div className="grid gap-4 sm:grid-cols-3">
+                <InvestigationMetric
+                  label="Runtime"
+                  value={
+                    investigation.sourceAnalysis.runtime
+                      ? `${investigation.sourceAnalysis.runtime.duration} ms`
+                      : "-"
+                  }
+                />
+
+                <InvestigationMetric
+                  label="Bottleneck"
+                  value={
+                    investigation.sourceAnalysis.bottleneck
+                      ? investigation.sourceAnalysis
+                          .bottleneck.name
+                      : "-"
+                  }
+                />
+
+                <InvestigationMetric
+                  label="Impact"
+                  value={
+                    investigation.sourceAnalysis.bottleneck
+                      ? `${investigation.sourceAnalysis.bottleneck.percentage}%`
+                      : "-"
+                  }
+                />
+              </div>
+
+              {investigation.sourceAnalysis.rootCause && (
+                <InvestigationPanel
+                  title="Root Cause"
+                  content={
+                    investigation.sourceAnalysis.rootCause
+                      .explanation
+                  }
+                />
+              )}
+
+              {investigation.sourceAnalysis.developerRecommendation && (
+                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4">
+                  <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                    <h4 className="text-sm font-semibold text-amber-900">
+                      Developer Recommendation
+                    </h4>
+
+                    <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-amber-800">
+                      {
+                        investigation.sourceAnalysis
+                          .developerRecommendation
+                          .priority
+                      }
+                    </span>
+                  </div>
+
+                  <p className="mt-2 text-sm font-medium text-amber-900">
+                    {
+                      investigation.sourceAnalysis
+                        .developerRecommendation.title
+                    }
+                  </p>
+
+                  <p className="mt-2 text-sm leading-6 text-amber-800">
+                    {
+                      investigation.sourceAnalysis
+                        .developerRecommendation
+                        .recommendation
+                    }
+                  </p>
+                </div>
+              )}
+
+              {investigation.sourceAnalysis.sourceContext && (
+                <div className="overflow-hidden rounded-lg border border-slate-200">
+                  <div className="border-b border-slate-200 bg-slate-50 px-4 py-3">
+                    <h4 className="text-sm font-semibold text-slate-800">
+                      Source Context
+                    </h4>
+
+                    <p className="mt-1 text-xs text-slate-500">
+                      Lines{" "}
+                      {
+                        investigation.sourceAnalysis
+                          .sourceContext.startLine
+                      }
+                      -
+                      {
+                        investigation.sourceAnalysis
+                          .sourceContext.endLine
+                      }
+                    </p>
+                  </div>
+
+                  <pre className="overflow-x-auto bg-slate-950 p-4 text-xs leading-6 text-slate-200">
+                    <code>
+                      {
+                        investigation.sourceAnalysis
+                          .sourceContext.code
+                      }
+                    </code>
+                  </pre>
+                </div>
+              )}
+
+              {aiDiagnosis && (
+                <div className="rounded-xl border border-slate-300 bg-slate-50">
+                  <div className="border-b border-slate-200 px-5 py-4">
+                    <div className="flex items-center gap-2">
+                      <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
+                        AI
+                      </span>
+
+                      <div>
+                        <h4 className="font-semibold text-slate-900">
+                          AI Diagnosis
+                        </h4>
+
+                        <p className="text-xs text-slate-500">
+                          Manus analysis based on collected evidence
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="space-y-5 p-5">
+                    <AiSection
+                      title="Root Cause"
+                      content={aiDiagnosis.rootCause}
+                    />
+
+                    <AiSection
+                      title="Evidence"
+                      content={aiDiagnosis.evidence}
+                    />
+
+                    <AiSection
+                      title="Source"
+                      content={aiDiagnosis.source}
+                    />
+
+                    <AiSection
+                      title="Recommendation"
+                      content={aiDiagnosis.recommendation}
+                    />
+
+                    <AiSection
+                      title="Assumptions"
+                      content={aiDiagnosis.assumptions}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </section>
 
       {/* API Health */}
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
@@ -329,6 +728,66 @@ export default function AgentDashboard() {
           </div>
         )}
       </section>
+    </div>
+  );
+}
+
+function InvestigationMetric({
+  label,
+  value,
+}: {
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+        {label}
+      </p>
+
+      <p className="mt-2 truncate text-sm font-semibold text-slate-900">
+        {value}
+      </p>
+    </div>
+  );
+}
+
+function InvestigationPanel({
+  title,
+  content,
+}: {
+  title: string;
+  content: string;
+}) {
+  return (
+    <div className="rounded-lg border border-slate-200 p-4">
+      <h4 className="text-sm font-semibold text-slate-900">
+        {title}
+      </h4>
+
+      <p className="mt-2 text-sm leading-6 text-slate-600">
+        {content}
+      </p>
+    </div>
+  );
+}
+
+function AiSection({
+  title,
+  content,
+}: {
+  title: string;
+  content: string;
+}) {
+  return (
+    <div>
+      <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
+        {title}
+      </h5>
+
+      <p className="mt-2 text-sm leading-6 text-slate-700">
+        {content}
+      </p>
     </div>
   );
 }
