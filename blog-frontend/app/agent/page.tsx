@@ -3,6 +3,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import { StatCard } from "@/app/components/agent/StatCard";
+import InvestigationHistory from "@/app/components/agent/InvestigationHistory"
 
 interface ApiStat {
   path: string;
@@ -570,6 +571,8 @@ export default function AgentDashboard() {
           )}
         </div>
       </section>
+
+      <InvestigationHistory />
 
       {/* API Health */}
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
