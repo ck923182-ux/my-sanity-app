@@ -56,49 +56,104 @@ export default function InvestigationHistory() {
   const [error, setError] =
     useState<string | null>(null)
 
-  async function loadInvestigations() {
-    try {
-      setError(null)
+async function loadInvestigations() {
+  try {
+    const response = await fetch(
+      "/api/agent/investigations",
+      {
+        cache: "no-store",
+      }
+    )
 
-      const response =
-        await fetch(
-          "/api/agent/investigations",
-          {
-            cache: "no-store",
+    if (!response.ok) {
+      throw new Error(
+        `Failed to load investigations: ${response.status}`
+      )
+    }
+
+    const data = await response.json()
+
+    const investigations: Investigation[] =
+      data.investigations || []
+
+    setInvestigations(investigations)
+
+    // Find investigations that are still processing
+    const processingInvestigations =
+      investigations.filter(
+        (investigation) =>
+          investigation.status === "processing" &&
+          investigation.taskId
+      )
+
+    // Ask the backend to check their Manus AI status
+    if (processingInvestigations.length > 0) {
+      await Promise.all(
+        processingInvestigations.map(
+          async (investigation) => {
+            try {
+              const response = await fetch(
+                `/api/agent/investigate/${investigation.taskId}`,
+                {
+                  cache: "no-store",
+                }
+              )
+
+              if (!response.ok) {
+                console.error(
+                  `Failed to check investigation ${investigation.id}: ${response.status}`
+                )
+              }
+            } catch (error) {
+              console.error(
+                "Investigation status check failed:",
+                error
+              )
+            }
           }
         )
+      )
 
-      const data =
-        (await response.json()) as InvestigationsResponse
+      // Reload after processing status checks
+      const updatedResponse = await fetch(
+        "/api/agent/investigations",
+        {
+          cache: "no-store",
+        }
+      )
 
-      if (!response.ok || !data.success) {
-        throw new Error(
-          "Failed to load investigations."
+      if (updatedResponse.ok) {
+        const updatedData =
+          await updatedResponse.json()
+
+        setInvestigations(
+          updatedData.investigations || []
         )
       }
-
-      setInvestigations(
-        data.investigations
-      )
-    } catch (error) {
-      console.error(
-        "Investigation history error:",
-        error
-      )
-
-      setError(
-        error instanceof Error
-          ? error.message
-          : "Failed to load investigations."
-      )
-    } finally {
-      setLoading(false)
     }
+  } catch (error) {
+    console.error(
+      "Failed to load investigations:",
+      error
+    )
+  } finally {
+    // IMPORTANT: always stop loading
+    setLoading(false)
   }
+}
+
 
   useEffect(() => {
+  loadInvestigations()
+
+  const interval = setInterval(() => {
     loadInvestigations()
-  }, [])
+  }, 5000)
+
+  return () => {
+    clearInterval(interval)
+  }
+}, [])
 
   function formatDate(
     timestamp: number

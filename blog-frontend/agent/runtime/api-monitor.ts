@@ -66,7 +66,9 @@
 // } 
 
 import { addRequestLog, getRequestLogs } from "../store"
-
+import {
+  triggerAutomaticInvestigation,
+} from "../automatic-investigator"
 import {
   measureOperation,
   type OperationTiming,
@@ -235,6 +237,11 @@ export async function monitorApi<T extends Response>(
 
     addRequestLog(log)
 
+    void triggerAutomaticInvestigation(
+  log.path,
+  request.url
+)
+
     return response
   } catch (error) {
     const duration = Math.round(
@@ -274,6 +281,11 @@ export async function monitorApi<T extends Response>(
     )
 
     addRequestLog(log)
+
+void triggerAutomaticInvestigation(
+  log.path,
+  request.url
+)
 
     throw error
   }
