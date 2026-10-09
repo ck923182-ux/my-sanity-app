@@ -29,24 +29,24 @@
 // "Everyone can pass."
 // return NextResponse.next();
 
-import { request } from "https";
-import { NextResponse} from "next/server";
+// import { request } from "https";
+// import { NextResponse} from "next/server";
 
-export function proxy(request: Request) {
+// export function proxy(request: Request) {
   
-    const url = new URL(request.url);
+//     const url = new URL(request.url);
 
-   if(url.pathname.startsWith("/intercept-demo/secret")) {
-    return NextResponse.redirect(new URL("/contact", request.url));
-   }
+//    if(url.pathname.startsWith("/intercept-demo/secret")) {
+//     return NextResponse.redirect(new URL("/contact", request.url));
+//    }
 
 
-  return NextResponse.next();
-}
+//   return NextResponse.next();
+// }
 
-export const config = {
-  matcher: ["/intercept-demo/:path*"],
-};
+// export const config = {
+//   matcher: ["/intercept-demo/:path*"],
+// };
 
 // Request
 //    ↓
@@ -63,3 +63,50 @@ export const config = {
 //     ↓          ↓
 //  redirect    next()
 //  /contact    normally
+
+// Next implementation: Proxy + Cookie check
+
+// import { NextResponse } from "next/server";
+
+// export function proxy(request: Request) {
+//   const url = new URL(request.url);
+
+//   if (url.pathname.startsWith("/intercept-demo/private")) {
+//     const cookie = request.headers.get("cookie");
+
+//     if (!cookie) {
+//       return NextResponse.redirect(
+//         new URL("/contact", request.url)
+//       );
+//     }
+//   }
+
+//   return NextResponse.next();
+// }
+
+// export const config = {
+//   matcher: ["/intercept-demo/:path*"],
+// };
+
+
+import { NextRequest, NextResponse } from "next/server";
+
+export function proxy(request: NextRequest) {
+  const url = new URL(request.url);
+
+  if (url.pathname.startsWith("/intercept-demo/private")) {
+    const authToken = request.cookies.get("auth-token");
+
+    if (!authToken) {
+      return NextResponse.redirect(
+        new URL("/contact", request.url)
+      );
+    }
+  }
+
+  return NextResponse.next();
+}
+
+export const config = {
+  matcher: ["/intercept-demo/:path*"],
+};
