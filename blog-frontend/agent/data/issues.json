@@ -1,0 +1,42 @@
+[
+  {
+    "id": "5bdc3ef2-9e6d-40e9-9714-6d9c34b26a02",
+    "fingerprint": "/api/update-post::sanity.patch.commit",
+    "apiPath": "/api/update-post",
+    "title": "Slow operation: sanity.patch.commit",
+    "status": "open",
+    "priority": "high",
+    "firstDetectedAt": 1791648547089,
+    "lastDetectedAt": 1791648547089,
+    "occurrenceCount": 1,
+    "investigationIds": [
+      "d366d098-c5d0-4395-af02-bd30b62fa32c"
+    ],
+    "latestInvestigationId": "d366d098-c5d0-4395-af02-bd30b62fa32c",
+    "bottleneck": {
+      "name": "sanity.patch.commit",
+      "duration": 1303,
+      "percentage": 100
+    },
+    "rootCause": {
+      "likelyCause": "sanity.patch.commit",
+      "explanation": "sanity.patch.commit accounts for 1303ms of the 1305ms request.",
+      "duration": 1305,
+      "bottleneckDuration": 1303,
+      "sourceLines": [
+        12,
+        19
+      ]
+    },
+    "recommendation": {
+      "title": "Investigate database operation latency",
+      "recommendation": "Investigate the sanity.patch.commit operation because it accounts for 100% of the measured request duration. Measure the database/network operation separately and verify the database response time before optimizing other parts of the API.",
+      "reason": "sanity.patch.commit took 1303ms and represents 100% of the measured request duration.",
+      "sourceLines": [
+        12,
+        19
+      ]
+    },
+    "updatedAt": 1791648547089
+  }
+]

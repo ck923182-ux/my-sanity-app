@@ -39,6 +39,30 @@ interface LogsResponse {
   logs: RequestLog[];
 }
 
+
+interface IssueSummary {
+  total: number;
+  open: number;
+  resolved: number;
+  recurring: number;
+}
+
+interface Issue {
+  id: string;
+  apiPath: string;
+  title: string;
+  status: "open" | "resolved";
+  priority: "high" | "medium" | "low";
+  occurrenceCount: number;
+}
+
+interface IssuesResponse {
+  success: boolean;
+  summary: IssueSummary;
+  issues: Issue[];
+}
+
+
 interface InvestigationResponse {
   success: boolean;
   apiPath: string;
@@ -97,6 +121,7 @@ interface InvestigationAiResponse {
 export default function AgentDashboard() {
   const [stats, setStats] = useState<StatsResponse | null>(null);
   const [logs, setLogs] = useState<LogsResponse | null>(null);
+  const [issues, setIssues] = useState<IssuesResponse | null>(null);
   const [loading, setLoading] = useState(true);
 
   const [investigationPath, setInvestigationPath] =
@@ -116,16 +141,15 @@ export default function AgentDashboard() {
       null
     );
 
+  
   const loadDashboard = useCallback(async () => {
     try {
-      const [statsResponse, logsResponse] = await Promise.all([
-        fetch("/api/agent/stats", {
-          cache: "no-store",
-        }),
-        fetch("/api/agent/logs", {
-          cache: "no-store",
-        }),
-      ]);
+      const [statsResponse, logsResponse, issuesResponse] =
+        await Promise.all([
+          fetch("/api/agent/stats", { cache: "no-store" }),
+          fetch("/api/agent/logs", { cache: "no-store" }),
+          fetch("/api/agent/issues", { cache: "no-store" }),
+        ]);
 
       if (!statsResponse.ok || !logsResponse.ok) {
         throw new Error("Failed to load agent data");
@@ -138,12 +162,23 @@ export default function AgentDashboard() {
 
       setStats(statsData);
       setLogs(logsData);
+
+      // Issue history is optional; its failure won't break the dashboard.
+      if (issuesResponse.ok) {
+        const issuesData =
+          (await issuesResponse.json()) as IssuesResponse;
+
+        if (issuesData.success) {
+          setIssues(issuesData);
+        }
+      }
     } catch (error) {
       console.error("Agent dashboard error:", error);
     } finally {
       setLoading(false);
     }
   }, []);
+
 
   useEffect(() => {
     loadDashboard();
@@ -257,6 +292,20 @@ export default function AgentDashboard() {
   const apiStats = stats?.stats ?? [];
   const requestLogs = logs?.logs ?? [];
 
+  const issueSummary = issues?.summary ?? {
+  total: 0,
+  open: 0,
+  resolved: 0,
+  recurring: 0,
+};
+
+const highPriorityIssues =
+  issues?.issues.filter(
+    (issue) =>
+      issue.status === "open" &&
+      issue.priority === "high"
+  ).length ?? 0;
+
   const totalCalls = apiStats.reduce(
     (total, api) => total + api.totalCalls,
     0
@@ -347,6 +396,173 @@ export default function AgentDashboard() {
           icon="◷"
         />
       </div>
+
+      
+        {/* Issue History Summary */}
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <div>
+              <h3 className="font-semibold text-slate-900">
+                Issue History
+              </h3>
+              <p className="mt-1 text-xs text-slate-500">
+                Live issue tracking and recurrence
+              </p>
+            </div>
+
+            <a
+              href="/agent/issues"
+              className="text-sm font-medium text-slate-700 hover:text-slate-950"
+            >
+              View all issues →
+            </a>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+            <StatCard
+              label="Total Issues"
+              value={issueSummary.total}
+              description="Tracked issue records"
+              icon="◉"
+            />
+
+            <StatCard
+              label="Open Issues"
+              value={issueSummary.open}
+              description="Issues needing attention"
+              icon="!"
+            />
+
+            <StatCard
+              label="Recurring Issues"
+              value={issueSummary.recurring}
+              description="Detected more than once"
+              icon="↻"
+            />
+
+            <StatCard
+              label="High-Priority Issues"
+              value={highPriorityIssues}
+              description="Open issues marked high priority"
+              icon="↑"
+            />
+          </div>
+        </section>
+
+
+
+          {/* Recent Issues */}
+          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+              <div>
+                <h3 className="font-semibold text-slate-900">
+                  Recent Issues
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Issues requiring attention and their latest findings
+                </p>
+              </div>
+
+              <a
+                href="/agent/issues"
+                className="text-sm font-medium text-slate-700 hover:text-slate-950"
+              >
+                View all →
+              </a>
+            </div>
+
+            {!issues ? (
+              <div className="px-5 py-8 text-center text-sm text-slate-500">
+                Loading issue history...
+              </div>
+            ) : issues.issues.length === 0 ? (
+              <div className="px-5 py-8 text-center text-sm text-slate-500">
+                No issues recorded yet. Your agent will list issues here when investigations identify them.
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm">
+                  <thead className="border-b border-slate-100 bg-slate-50">
+                    <tr>
+                      <th className="px-5 py-3 font-medium text-slate-500">
+                        API / Issue
+                      </th>
+                      <th className="px-5 py-3 font-medium text-slate-500">
+                        Priority
+                      </th>
+                      <th className="px-5 py-3 font-medium text-slate-500">
+                        Status
+                      </th>
+                      <th className="px-5 py-3 font-medium text-slate-500">
+                        Occurrences
+                      </th>
+                      <th className="px-5 py-3 font-medium text-slate-500">
+                        Action
+                      </th>
+                    </tr>
+                  </thead>
+
+                  <tbody className="divide-y divide-slate-100">
+                    {issues.issues.slice(0, 5).map((issue) => (
+                      <tr
+                        key={issue.id}
+                        className="hover:bg-slate-50"
+                      >
+                        <td className="px-5 py-4">
+                          <p className="font-medium text-slate-800">
+                            {issue.apiPath}
+                          </p>
+                          <p className="mt-1 text-xs text-slate-500">
+                            {issue.title}
+                          </p>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                              issue.priority === "high"
+                                ? "bg-red-50 text-red-700"
+                                : issue.priority === "medium"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-slate-100 text-slate-600"
+                            }`}
+                          >
+                            {issue.priority}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <span
+                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                              issue.status === "open"
+                                ? "bg-amber-50 text-amber-700"
+                                : "bg-emerald-50 text-emerald-700"
+                            }`}
+                          >
+                            {issue.status}
+                          </span>
+                        </td>
+
+                        <td className="px-5 py-4 text-slate-600">
+                          {issue.occurrenceCount}
+                        </td>
+
+                        <td className="px-5 py-4">
+                          <a
+                            href="/agent/issues"
+                            className="font-medium text-slate-700 hover:text-slate-950"
+                          >
+                            View issue →
+                          </a>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
 
       {/* AI Investigation */}
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">

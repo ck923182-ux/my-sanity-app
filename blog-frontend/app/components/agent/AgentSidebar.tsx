@@ -24,6 +24,11 @@ const navigation = [
     href: "/agent/health-ai",
     icon: "✦",
   },
+   {
+    name: "Issues",
+    href: "/agent/issues",
+    icon: "⚑",
+  },
 ];
 
 export function AgentSidebar() {

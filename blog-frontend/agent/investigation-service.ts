@@ -7,14 +7,16 @@ import {
   addInvestigation,
 } from "@/agent/investigation-store"
 
+import {
+  upsertIssue,
+} from "@/agent/issue-store"
+
 type SourceAnalysisResponse = {
   success: boolean
   found: boolean
 
   apiPath?: string
-
   filePath?: string
-
   operations?: unknown[]
 
   runtime?: {
@@ -62,25 +64,23 @@ export async function createInvestigation(
    * Run source analysis.
    */
 
-  const sourceAnalysisUrl =
-    new URL(
-      "/api/agent/source-analysis",
-      requestUrl
-    )
+  const sourceAnalysisUrl = new URL(
+    "/api/agent/source-analysis",
+    requestUrl
+  )
 
   sourceAnalysisUrl.searchParams.set(
     "path",
     apiPath
   )
 
-  const sourceAnalysisResponse =
-    await fetch(
-      sourceAnalysisUrl.toString(),
-      {
-        method: "GET",
-        cache: "no-store",
-      }
-    )
+  const sourceAnalysisResponse = await fetch(
+    sourceAnalysisUrl.toString(),
+    {
+      method: "GET",
+      cache: "no-store",
+    }
+  )
 
   const sourceAnalysis =
     (await sourceAnalysisResponse.json()) as SourceAnalysisResponse
@@ -89,9 +89,7 @@ export async function createInvestigation(
     !sourceAnalysisResponse.ok ||
     !sourceAnalysis.success
   ) {
-    throw new Error(
-      "Source analysis failed."
-    )
+    throw new Error("Source analysis failed.")
   }
 
   /*
@@ -99,9 +97,7 @@ export async function createInvestigation(
    * Make sure the source file exists.
    */
 
-  if (
-    !sourceAnalysis.found
-  ) {
+  if (!sourceAnalysis.found) {
     throw new Error(
       `Source file not found for ${apiPath}.`
     )
@@ -112,57 +108,36 @@ export async function createInvestigation(
    * Send source evidence to Manus AI.
    */
 
-  const aiTask =
-    await createSourceAnalysisTask({
-      apiPath,
+  const aiTask = await createSourceAnalysisTask({
+    apiPath,
 
-      runtime:
-        sourceAnalysis.runtime
-          ? {
-              duration:
-                sourceAnalysis
-                  .runtime
-                  .duration,
+    runtime: sourceAnalysis.runtime
+      ? {
+          duration: sourceAnalysis.runtime.duration,
+          status: sourceAnalysis.runtime.status,
+        }
+      : null,
 
-              status:
-                sourceAnalysis
-                  .runtime
-                  .status,
-            }
-          : null,
+    bottleneck: sourceAnalysis.bottleneck ?? null,
 
-      bottleneck:
-        sourceAnalysis
-          .bottleneck ??
-        null,
+    rootCause: sourceAnalysis.rootCause ?? null,
 
-      rootCause:
-        sourceAnalysis
-          .rootCause ??
-        null,
+    developerRecommendation:
+      sourceAnalysis.developerRecommendation ?? null,
 
-      developerRecommendation:
-        sourceAnalysis
-          .developerRecommendation ??
-        null,
-
-      sourceContext:
-        sourceAnalysis
-          .sourceContext ??
-        null,
-    })
+    sourceContext: sourceAnalysis.sourceContext ?? null,
+  })
 
   /*
    * Step 4:
    * Create investigation ID.
    */
 
-  const investigationId =
-    crypto.randomUUID()
+  const investigationId = crypto.randomUUID()
 
   /*
    * Step 5:
-   * Save investigation.
+   * Save the investigation.
    */
 
   addInvestigation({
@@ -170,43 +145,73 @@ export async function createInvestigation(
 
     apiPath,
 
-    createdAt:
-      Date.now(),
+    createdAt: Date.now(),
 
-    status:
-      "processing",
+    status: "processing",
 
-    taskId:
-      aiTask.taskId,
+    taskId: aiTask.taskId,
 
     sourceAnalysis: {
-      filePath:
-        sourceAnalysis
-          .filePath,
+      filePath: sourceAnalysis.filePath,
 
-      runtime:
-        sourceAnalysis
-          .runtime ?? null,
+      runtime: sourceAnalysis.runtime ?? null,
 
-      bottleneck:
-        sourceAnalysis
-          .bottleneck ?? null,
+      bottleneck: sourceAnalysis.bottleneck ?? null,
 
-      rootCause:
-        sourceAnalysis
-          .rootCause ?? null,
+      rootCause: sourceAnalysis.rootCause ?? null,
 
       developerRecommendation:
-        sourceAnalysis
-          .developerRecommendation ??
-        null,
+        sourceAnalysis.developerRecommendation ?? null,
 
-      sourceContext:
-        sourceAnalysis
-          .sourceContext ?? null,
+      sourceContext: sourceAnalysis.sourceContext ?? null,
     },
 
     ai: null,
+  })
+
+  /*
+   * Step 6:
+   * Create or update issue history.
+   *
+   * Each new investigation is linked to an issue.
+   * Matching issues have their occurrence count increased.
+   */
+
+  const issue = upsertIssue({
+    apiPath,
+
+    investigationId,
+
+    priority:
+      sourceAnalysis.developerRecommendation?.priority ??
+      "medium",
+
+    bottleneck: sourceAnalysis.bottleneck ?? null,
+
+    rootCause: sourceAnalysis.rootCause ?? null,
+
+    recommendation: sourceAnalysis.developerRecommendation
+      ? {
+          title:
+            sourceAnalysis.developerRecommendation.title,
+
+          recommendation:
+            sourceAnalysis.developerRecommendation.recommendation,
+
+          reason:
+            sourceAnalysis.developerRecommendation.reason,
+
+          sourceLines:
+            sourceAnalysis.developerRecommendation.sourceLines,
+        }
+      : null,
+  })
+
+  console.log("ISSUE HISTORY UPDATED:", {
+    issueId: issue.id,
+    apiPath: issue.apiPath,
+    occurrenceCount: issue.occurrenceCount,
+    status: issue.status,
   })
 
   return {
@@ -214,9 +219,10 @@ export async function createInvestigation(
 
     apiPath,
 
-    taskId:
-      aiTask.taskId,
+    taskId: aiTask.taskId,
 
     sourceAnalysis,
+
+    issueId: issue.id,
   }
 }
