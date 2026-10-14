@@ -1,9 +1,8 @@
-
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
 import { StatCard } from "@/app/components/agent/StatCard";
-import InvestigationHistory from "@/app/components/agent/InvestigationHistory"
+import InvestigationHistory from "@/app/components/agent/InvestigationHistory";
 
 interface ApiStat {
   path: string;
@@ -39,7 +38,6 @@ interface LogsResponse {
   logs: RequestLog[];
 }
 
-
 interface IssueSummary {
   total: number;
   open: number;
@@ -54,6 +52,11 @@ interface Issue {
   status: "open" | "resolved";
   priority: "high" | "medium" | "low";
   occurrenceCount: number;
+  bottleneck?: {
+    name: string;
+    duration: number;
+    percentage: number;
+  } | null;
 }
 
 interface IssuesResponse {
@@ -61,7 +64,6 @@ interface IssuesResponse {
   summary: IssueSummary;
   issues: Issue[];
 }
-
 
 interface InvestigationResponse {
   success: boolean;
@@ -127,29 +129,24 @@ export default function AgentDashboard() {
   const [investigationPath, setInvestigationPath] =
     useState("/api/update-post");
 
-  const [investigating, setInvestigating] =
-    useState(false);
+  const [investigating, setInvestigating] = useState(false);
 
-  const [investigationError, setInvestigationError] =
-    useState("");
+  const [investigationError, setInvestigationError] = useState("");
 
   const [investigation, setInvestigation] =
     useState<InvestigationResponse | null>(null);
 
-  const [aiDiagnosis, setAiDiagnosis] =
-    useState<InvestigationAiResponse["ai"] | null>(
-      null
-    );
+  const [aiDiagnosis, setAiDiagnosis] = useState<
+    InvestigationAiResponse["ai"] | null
+  >(null);
 
-  
   const loadDashboard = useCallback(async () => {
     try {
-      const [statsResponse, logsResponse, issuesResponse] =
-        await Promise.all([
-          fetch("/api/agent/stats", { cache: "no-store" }),
-          fetch("/api/agent/logs", { cache: "no-store" }),
-          fetch("/api/agent/issues", { cache: "no-store" }),
-        ]);
+      const [statsResponse, logsResponse, issuesResponse] = await Promise.all([
+        fetch("/api/agent/stats", { cache: "no-store" }),
+        fetch("/api/agent/logs", { cache: "no-store" }),
+        fetch("/api/agent/issues", { cache: "no-store" }),
+      ]);
 
       if (!statsResponse.ok || !logsResponse.ok) {
         throw new Error("Failed to load agent data");
@@ -165,8 +162,7 @@ export default function AgentDashboard() {
 
       // Issue history is optional; its failure won't break the dashboard.
       if (issuesResponse.ok) {
-        const issuesData =
-          (await issuesResponse.json()) as IssuesResponse;
+        const issuesData = (await issuesResponse.json()) as IssuesResponse;
 
         if (issuesData.success) {
           setIssues(issuesData);
@@ -178,7 +174,6 @@ export default function AgentDashboard() {
       setLoading(false);
     }
   }, []);
-
 
   useEffect(() => {
     loadDashboard();
@@ -202,27 +197,20 @@ export default function AgentDashboard() {
     setAiDiagnosis(null);
 
     try {
-      const response = await fetch(
-        "/api/agent/investigate",
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            path,
-          }),
-        }
-      );
+      const response = await fetch("/api/agent/investigate", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          path,
+        }),
+      });
 
-      const data =
-        (await response.json()) as InvestigationResponse;
+      const data = (await response.json()) as InvestigationResponse;
 
       if (!response.ok || !data.success) {
-        throw new Error(
-          data.message ??
-            "Failed to start investigation."
-        );
+        throw new Error(data.message ?? "Failed to start investigation.");
       }
 
       setInvestigation(data);
@@ -237,31 +225,19 @@ export default function AgentDashboard() {
       let completed = false;
 
       for (let attempt = 0; attempt < 20; attempt++) {
-        await new Promise((resolve) =>
-          setTimeout(resolve, 2000)
-        );
+        await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const aiResponse = await fetch(
-          `/api/agent/investigate/${taskId}`,
-          {
-            cache: "no-store",
-          }
-        );
+        const aiResponse = await fetch(`/api/agent/investigate/${taskId}`, {
+          cache: "no-store",
+        });
 
-        const aiData =
-          (await aiResponse.json()) as InvestigationAiResponse;
+        const aiData = (await aiResponse.json()) as InvestigationAiResponse;
 
         if (!aiResponse.ok || !aiData.success) {
-          throw new Error(
-            aiData.message ??
-              "Failed to retrieve AI diagnosis."
-          );
+          throw new Error(aiData.message ?? "Failed to retrieve AI diagnosis.");
         }
 
-        if (
-          aiData.status === "completed" &&
-          aiData.ai
-        ) {
+        if (aiData.status === "completed" && aiData.ai) {
           setAiDiagnosis(aiData.ai);
           completed = true;
           break;
@@ -270,19 +246,14 @@ export default function AgentDashboard() {
 
       if (!completed) {
         setInvestigationError(
-          "AI analysis is still processing. Please try again shortly."
+          "AI analysis is still processing. Please try again shortly.",
         );
       }
     } catch (error) {
-      console.error(
-        "Investigation error:",
-        error
-      );
+      console.error("Investigation error:", error);
 
       setInvestigationError(
-        error instanceof Error
-          ? error.message
-          : "Failed to investigate API."
+        error instanceof Error ? error.message : "Failed to investigate API.",
       );
     } finally {
       setInvestigating(false);
@@ -293,42 +264,31 @@ export default function AgentDashboard() {
   const requestLogs = logs?.logs ?? [];
 
   const issueSummary = issues?.summary ?? {
-  total: 0,
-  open: 0,
-  resolved: 0,
-  recurring: 0,
-};
+    total: 0,
+    open: 0,
+    resolved: 0,
+    recurring: 0,
+  };
 
-const highPriorityIssues =
-  issues?.issues.filter(
-    (issue) =>
-      issue.status === "open" &&
-      issue.priority === "high"
-  ).length ?? 0;
+  const highPriorityIssues =
+    issues?.issues.filter(
+      (issue) => issue.status === "open" && issue.priority === "high",
+    ).length ?? 0;
 
-  const totalCalls = apiStats.reduce(
-    (total, api) => total + api.totalCalls,
-    0
-  );
+  const totalCalls = apiStats.reduce((total, api) => total + api.totalCalls, 0);
 
   const successCalls = apiStats.reduce(
     (total, api) => total + api.successCalls,
-    0
+    0,
   );
 
-  const errorCalls = apiStats.reduce(
-    (total, api) => total + api.errorCalls,
-    0
-  );
+  const errorCalls = apiStats.reduce((total, api) => total + api.errorCalls, 0);
 
   const averageDuration =
     apiStats.length > 0
       ? Math.round(
-          apiStats.reduce(
-            (total, api) =>
-              total + api.averageDuration,
-            0
-          ) / apiStats.length
+          apiStats.reduce((total, api) => total + api.averageDuration, 0) /
+            apiStats.length,
         )
       : 0;
 
@@ -397,180 +357,201 @@ const highPriorityIssues =
         />
       </div>
 
-      
-        {/* Issue History Summary */}
-        <section>
-          <div className="mb-4 flex items-center justify-between">
-            <div>
-              <h3 className="font-semibold text-slate-900">
-                Issue History
-              </h3>
-              <p className="mt-1 text-xs text-slate-500">
-                Live issue tracking and recurrence
-              </p>
-            </div>
-
-            <a
-              href="/agent/issues"
-              className="text-sm font-medium text-slate-700 hover:text-slate-950"
-            >
-              View all issues →
-            </a>
+      {/* Issue History Summary */}
+      <section>
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-slate-900">Issue History</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Live issue tracking and recurrence
+            </p>
           </div>
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-            <StatCard
-              label="Total Issues"
-              value={issueSummary.total}
-              description="Tracked issue records"
-              icon="◉"
-            />
+          <a
+            href="/agent/issues"
+            className="text-sm font-medium text-slate-700 hover:text-slate-950"
+          >
+            View all issues →
+          </a>
+        </div>
 
-            <StatCard
-              label="Open Issues"
-              value={issueSummary.open}
-              description="Issues needing attention"
-              icon="!"
-            />
+        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <StatCard
+            label="Total Issues"
+            value={issueSummary.total}
+            description="Tracked issue records"
+            icon="◉"
+          />
 
-            <StatCard
-              label="Recurring Issues"
-              value={issueSummary.recurring}
-              description="Detected more than once"
-              icon="↻"
-            />
+          <StatCard
+            label="Open Issues"
+            value={issueSummary.open}
+            description="Issues needing attention"
+            icon="!"
+          />
 
-            <StatCard
-              label="High-Priority Issues"
-              value={highPriorityIssues}
-              description="Open issues marked high priority"
-              icon="↑"
-            />
+          <StatCard
+            label="Recurring Issues"
+            value={issueSummary.recurring}
+            description="Detected more than once"
+            icon="↻"
+          />
+
+          <StatCard
+            label="High-Priority Issues"
+            value={highPriorityIssues}
+            description="Open issues marked high priority"
+            icon="↑"
+          />
+        </div>
+      </section>
+
+      {/* Recent Issues */}
+      <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
+        <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h3 className="font-semibold text-slate-900">Recent Issues</h3>
+            <p className="mt-1 text-xs text-slate-500">
+              Issues requiring attention and their latest findings
+            </p>
           </div>
-        </section>
 
+          <a
+            href="/agent/issues"
+            className="text-sm font-medium text-slate-700 hover:text-slate-950"
+          >
+            View all →
+          </a>
+        </div>
 
+        {!issues ? (
+          <div className="px-5 py-8 text-center text-sm text-slate-500">
+            Loading issue history...
+          </div>
+        ) : issues.issues.length === 0 ? (
+          <div className="px-5 py-8 text-center text-sm text-slate-500">
+            No issues recorded yet. Your agent will list issues here when
+            investigations identify them.
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <thead className="border-b border-slate-100 bg-slate-50">
+                <tr>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    API / Issue
+                  </th>
 
-          {/* Recent Issues */}
-          <section className="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
-              <div>
-                <h3 className="font-semibold text-slate-900">
-                  Recent Issues
-                </h3>
-                <p className="mt-1 text-xs text-slate-500">
-                  Issues requiring attention and their latest findings
-                </p>
-              </div>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    Bottleneck
+                  </th>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    Impact
+                  </th>
 
-              <a
-                href="/agent/issues"
-                className="text-sm font-medium text-slate-700 hover:text-slate-950"
-              >
-                View all →
-              </a>
-            </div>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    Priority
+                  </th>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    Status
+                  </th>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    Occurrences
+                  </th>
+                  <th className="px-5 py-3 font-medium text-slate-500">
+                    Action
+                  </th>
+                </tr>
+              </thead>
 
-            {!issues ? (
-              <div className="px-5 py-8 text-center text-sm text-slate-500">
-                Loading issue history...
-              </div>
-            ) : issues.issues.length === 0 ? (
-              <div className="px-5 py-8 text-center text-sm text-slate-500">
-                No issues recorded yet. Your agent will list issues here when investigations identify them.
-              </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full text-left text-sm">
-                  <thead className="border-b border-slate-100 bg-slate-50">
-                    <tr>
-                      <th className="px-5 py-3 font-medium text-slate-500">
-                        API / Issue
-                      </th>
-                      <th className="px-5 py-3 font-medium text-slate-500">
-                        Priority
-                      </th>
-                      <th className="px-5 py-3 font-medium text-slate-500">
-                        Status
-                      </th>
-                      <th className="px-5 py-3 font-medium text-slate-500">
-                        Occurrences
-                      </th>
-                      <th className="px-5 py-3 font-medium text-slate-500">
-                        Action
-                      </th>
-                    </tr>
-                  </thead>
+              <tbody className="divide-y divide-slate-100">
+                {issues.issues.slice(0, 5).map((issue) => (
+                  <tr key={issue.id} className="hover:bg-slate-50">
+                    <td className="px-5 py-4">
+                      <p className="font-medium text-slate-800">
+                        {issue.apiPath}
+                      </p>
+                      <p className="mt-1 text-xs text-slate-500">
+                        {issue.title}
+                      </p>
+                    </td>
 
-                  <tbody className="divide-y divide-slate-100">
-                    {issues.issues.slice(0, 5).map((issue) => (
-                      <tr
-                        key={issue.id}
-                        className="hover:bg-slate-50"
-                      >
-                        <td className="px-5 py-4">
+                    <td className="px-5 py-4">
+                      {issue.bottleneck ? (
+                        <>
                           <p className="font-medium text-slate-800">
-                            {issue.apiPath}
+                            {issue.bottleneck.name}
                           </p>
                           <p className="mt-1 text-xs text-slate-500">
-                            {issue.title}
+                            {issue.bottleneck.duration.toLocaleString()} ms
                           </p>
-                        </td>
+                        </>
+                      ) : (
+                        <span className="text-slate-400">Not available</span>
+                      )}
+                    </td>
 
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                              issue.priority === "high"
-                                ? "bg-red-50 text-red-700"
-                                : issue.priority === "medium"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-slate-100 text-slate-600"
-                            }`}
-                          >
-                            {issue.priority}
-                          </span>
-                        </td>
+                    <td className="px-5 py-4">
+                      {issue.bottleneck ? (
+                        <span className="font-medium text-slate-700">
+                          {issue.bottleneck.percentage}%
+                        </span>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
 
-                        <td className="px-5 py-4">
-                          <span
-                            className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
-                              issue.status === "open"
-                                ? "bg-amber-50 text-amber-700"
-                                : "bg-emerald-50 text-emerald-700"
-                            }`}
-                          >
-                            {issue.status}
-                          </span>
-                        </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          issue.priority === "high"
+                            ? "bg-red-50 text-red-700"
+                            : issue.priority === "medium"
+                              ? "bg-amber-50 text-amber-700"
+                              : "bg-slate-100 text-slate-600"
+                        }`}
+                      >
+                        {issue.priority}
+                      </span>
+                    </td>
 
-                        <td className="px-5 py-4 text-slate-600">
-                          {issue.occurrenceCount}
-                        </td>
+                    <td className="px-5 py-4">
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
+                          issue.status === "open"
+                            ? "bg-amber-50 text-amber-700"
+                            : "bg-emerald-50 text-emerald-700"
+                        }`}
+                      >
+                        {issue.status}
+                      </span>
+                    </td>
 
-                        <td className="px-5 py-4">
-                          <a
-                            href="/agent/issues"
-                            className="font-medium text-slate-700 hover:text-slate-950"
-                          >
-                            View issue →
-                          </a>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </section>
+                    <td className="px-5 py-4 text-slate-600">
+                      {issue.occurrenceCount}
+                    </td>
 
+                    <td className="px-5 py-4">
+                      <a
+                        href="/agent/issues"
+                        className="font-medium text-slate-700 hover:text-slate-950"
+                      >
+                        View issue →
+                      </a>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       {/* AI Investigation */}
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="border-b border-slate-200 px-5 py-4">
           <div>
-            <h3 className="font-semibold text-slate-900">
-              AI Investigation
-            </h3>
+            <h3 className="font-semibold text-slate-900">AI Investigation</h3>
 
             <p className="mt-1 text-xs text-slate-500">
               Analyze an API bottleneck using runtime, source and AI evidence.
@@ -583,11 +564,7 @@ const highPriorityIssues =
             <input
               type="text"
               value={investigationPath}
-              onChange={(event) =>
-                setInvestigationPath(
-                  event.target.value
-                )
-              }
+              onChange={(event) => setInvestigationPath(event.target.value)}
               placeholder="/api/update-post"
               className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             />
@@ -598,9 +575,7 @@ const highPriorityIssues =
               disabled={investigating}
               className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {investigating
-                ? "Investigating..."
-                : "Investigate API"}
+              {investigating ? "Investigating..." : "Investigate API"}
             </button>
           </div>
 
@@ -644,8 +619,7 @@ const highPriorityIssues =
                   label="Bottleneck"
                   value={
                     investigation.sourceAnalysis.bottleneck
-                      ? investigation.sourceAnalysis
-                          .bottleneck.name
+                      ? investigation.sourceAnalysis.bottleneck.name
                       : "-"
                   }
                 />
@@ -663,10 +637,7 @@ const highPriorityIssues =
               {investigation.sourceAnalysis.rootCause && (
                 <InvestigationPanel
                   title="Root Cause"
-                  content={
-                    investigation.sourceAnalysis.rootCause
-                      .explanation
-                  }
+                  content={investigation.sourceAnalysis.rootCause.explanation}
                 />
               )}
 
@@ -679,24 +650,19 @@ const highPriorityIssues =
 
                     <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-amber-800">
                       {
-                        investigation.sourceAnalysis
-                          .developerRecommendation
+                        investigation.sourceAnalysis.developerRecommendation
                           .priority
                       }
                     </span>
                   </div>
 
                   <p className="mt-2 text-sm font-medium text-amber-900">
-                    {
-                      investigation.sourceAnalysis
-                        .developerRecommendation.title
-                    }
+                    {investigation.sourceAnalysis.developerRecommendation.title}
                   </p>
 
                   <p className="mt-2 text-sm leading-6 text-amber-800">
                     {
-                      investigation.sourceAnalysis
-                        .developerRecommendation
+                      investigation.sourceAnalysis.developerRecommendation
                         .recommendation
                     }
                   </p>
@@ -712,24 +678,14 @@ const highPriorityIssues =
 
                     <p className="mt-1 text-xs text-slate-500">
                       Lines{" "}
-                      {
-                        investigation.sourceAnalysis
-                          .sourceContext.startLine
-                      }
-                      -
-                      {
-                        investigation.sourceAnalysis
-                          .sourceContext.endLine
-                      }
+                      {investigation.sourceAnalysis.sourceContext.startLine}-
+                      {investigation.sourceAnalysis.sourceContext.endLine}
                     </p>
                   </div>
 
                   <pre className="overflow-x-auto bg-slate-950 p-4 text-xs leading-6 text-slate-200">
                     <code>
-                      {
-                        investigation.sourceAnalysis
-                          .sourceContext.code
-                      }
+                      {investigation.sourceAnalysis.sourceContext.code}
                     </code>
                   </pre>
                 </div>
@@ -766,10 +722,7 @@ const highPriorityIssues =
                       content={aiDiagnosis.evidence}
                     />
 
-                    <AiSection
-                      title="Source"
-                      content={aiDiagnosis.source}
-                    />
+                    <AiSection title="Source" content={aiDiagnosis.source} />
 
                     <AiSection
                       title="Recommendation"
@@ -794,9 +747,7 @@ const highPriorityIssues =
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <h3 className="font-semibold text-slate-900">
-              API Health
-            </h3>
+            <h3 className="font-semibold text-slate-900">API Health</h3>
 
             <p className="mt-1 text-xs text-slate-500">
               Current health of monitored endpoints
@@ -887,9 +838,7 @@ const highPriorityIssues =
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
-            <h3 className="font-semibold text-slate-900">
-              Recent Requests
-            </h3>
+            <h3 className="font-semibold text-slate-900">Recent Requests</h3>
 
             <p className="mt-1 text-xs text-slate-500">
               Latest requests captured by the monitoring agent
@@ -938,9 +887,7 @@ const highPriorityIssues =
                     {log.status}
                   </span>
 
-                  <span>
-                    {formatTime(log.timestamp)}
-                  </span>
+                  <span>{formatTime(log.timestamp)}</span>
                 </div>
               </div>
             ))}
@@ -980,33 +927,21 @@ function InvestigationPanel({
 }) {
   return (
     <div className="rounded-lg border border-slate-200 p-4">
-      <h4 className="text-sm font-semibold text-slate-900">
-        {title}
-      </h4>
+      <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
 
-      <p className="mt-2 text-sm leading-6 text-slate-600">
-        {content}
-      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-600">{content}</p>
     </div>
   );
 }
 
-function AiSection({
-  title,
-  content,
-}: {
-  title: string;
-  content: string;
-}) {
+function AiSection({ title, content }: { title: string; content: string }) {
   return (
     <div>
       <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
       </h5>
 
-      <p className="mt-2 text-sm leading-6 text-slate-700">
-        {content}
-      </p>
+      <p className="mt-2 text-sm leading-6 text-slate-700">{content}</p>
     </div>
   );
 }
