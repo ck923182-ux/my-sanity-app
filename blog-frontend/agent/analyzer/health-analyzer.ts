@@ -1,97 +1,89 @@
+import { getRequestLogs } from "@/agent/store";
+import { resolveApiRoute } from "@/agent/runtime/route-matcher";
 
-import { getRequestLogs } from "@/agent/store"
-import { resolveApiRoute } from "@/agent/runtime/route-matcher"
-
-export type HealthStatus = "healthy" | "warning" | "critical"
+export type HealthStatus = "healthy" | "warning" | "critical";
 
 export interface HealthIssue {
-  type: string
-  message: string
-  severity: "low" | "medium" | "high"
+  type: string;
+  message: string;
+  severity: "low" | "medium" | "high";
 }
 
 export interface ApiHealthResult {
-  path: string
-  method: string
-  health: HealthStatus
-  totalCalls: number
-  successCalls: number
-  errorCalls: number
-  serverErrorCalls: number
-  clientErrorCalls: number
-  averageDuration: number
-  maxDuration: number
-  errorRate: number
-  duplicateCalls: number
-  issues: HealthIssue[]
+  path: string;
+  method: string;
+  health: HealthStatus;
+  totalCalls: number;
+  successCalls: number;
+  errorCalls: number;
+  serverErrorCalls: number;
+  clientErrorCalls: number;
+  averageDuration: number;
+  maxDuration: number;
+  errorRate: number;
+  duplicateCalls: number;
+  issues: HealthIssue[];
 }
 
 export function analyzeApiHealth(
   path: string,
-  method?: string
+  method?: string,
 ): ApiHealthResult | null {
-  const normalizedPath = resolveApiRoute(path) ?? path
+  const normalizedPath = resolveApiRoute(path) ?? path;
 
   const logs = getRequestLogs().filter((log) => {
-    const normalizedLogPath = resolveApiRoute(log.path) ?? log.path
+    const normalizedLogPath = resolveApiRoute(log.path) ?? log.path;
 
-    if (normalizedLogPath !== normalizedPath) return false
-    if (method && log.method !== method) return false
+    if (normalizedLogPath !== normalizedPath) return false;
+    if (method && log.method !== method) return false;
 
-    return true
-  })
+    return true;
+  });
 
-  if (logs.length === 0) return null
+  if (logs.length === 0) return null;
 
-  const totalCalls = logs.length
+  const totalCalls = logs.length;
 
   const successCalls = logs.filter(
-    (log) => log.status >= 200 && log.status < 400
-  ).length
+    (log) => log.status >= 200 && log.status < 400,
+  ).length;
 
   // Keep the full HTTP error count for dashboard visibility.
-  const errorCalls = logs.filter(
-    (log) => log.status >= 400
-  ).length
+  const errorCalls = logs.filter((log) => log.status >= 400).length;
 
-  const serverErrorCalls = logs.filter(
-    (log) => log.status >= 500
-  ).length
+  const serverErrorCalls = logs.filter((log) => log.status >= 500).length;
 
   const clientErrorCalls = logs.filter(
-    (log) => log.status >= 400 && log.status < 500
-  ).length
+    (log) => log.status >= 400 && log.status < 500,
+  ).length;
 
-  const durations = logs.map((log) => log.duration)
+  const durations = logs.map((log) => log.duration);
 
   const averageDuration =
-    durations.reduce((sum, duration) => sum + duration, 0) /
-    durations.length
+    durations.reduce((sum, duration) => sum + duration, 0) / durations.length;
 
-  const maxDuration = Math.max(...durations)
+  const maxDuration = Math.max(...durations);
 
   // Use server failures for health severity so a single 401
   // does not automatically make the endpoint critical.
-  const errorRate = (serverErrorCalls / totalCalls) * 100
+  const errorRate = (serverErrorCalls / totalCalls) * 100;
 
-  const duplicateCalls = logs.filter(
-    (log) => log.isDuplicate === true
-  ).length
+  const duplicateCalls = logs.filter((log) => log.isDuplicate === true).length;
 
-  const issues: HealthIssue[] = []
+  const issues: HealthIssue[] = [];
 
   if (errorRate >= 50) {
     issues.push({
       type: "high-server-error-rate",
       message: `API server error rate is ${errorRate.toFixed(1)}%.`,
       severity: "high",
-    })
+    });
   } else if (errorRate >= 20) {
     issues.push({
       type: "elevated-server-error-rate",
       message: `API server error rate is ${errorRate.toFixed(1)}%.`,
       severity: "medium",
-    })
+    });
   }
 
   if (clientErrorCalls > 0) {
@@ -99,7 +91,7 @@ export function analyzeApiHealth(
       type: "client-errors",
       message: `${clientErrorCalls} client error(s) (4xx) recorded. These may include expected authentication or validation responses.`,
       severity: "low",
-    })
+    });
   }
 
   if (averageDuration >= 2000) {
@@ -107,30 +99,30 @@ export function analyzeApiHealth(
       type: "very-slow-api",
       message: `Average response time is ${Math.round(averageDuration)}ms.`,
       severity: "high",
-    })
+    });
   } else if (averageDuration >= 1000) {
     issues.push({
       type: "slow-api",
       message: `Average response time is ${Math.round(averageDuration)}ms.`,
       severity: "medium",
-    })
+    });
   }
 
- if (duplicateCalls > 0) {
-  issues.push({
-    type: "duplicate-requests",
-    message: `${duplicateCalls} duplicate request(s) detected.`,
-    severity: "low",
-  })
-}
+  if (duplicateCalls > 0) {
+    issues.push({
+      type: "duplicate-requests",
+      message: `${duplicateCalls} duplicate request(s) detected.`,
+      severity: "low",
+    });
+  }
 
-let health: HealthStatus = "healthy"
+  let health: HealthStatus = "healthy";
 
-if (issues.some((issue) => issue.severity === "high")) {
-  health = "critical"
-} else if (issues.some((issue) => issue.severity === "medium")) {
-  health = "warning"
-}
+  if (issues.some((issue) => issue.severity === "high")) {
+    health = "critical";
+  } else if (issues.some((issue) => issue.severity === "medium")) {
+    health = "warning";
+  }
 
   return {
     path: normalizedPath,
@@ -146,5 +138,5 @@ if (issues.some((issue) => issue.severity === "high")) {
     errorRate: Number(errorRate.toFixed(1)),
     duplicateCalls,
     issues,
-  }
+  };
 }
