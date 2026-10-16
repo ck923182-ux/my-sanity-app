@@ -1,5 +1,6 @@
 
 import { getRequestLogs } from "@/agent/store"
+import { resolveApiRoute } from "@/agent/runtime/route-matcher"
 
 export type HealthStatus = "healthy" | "warning" | "critical"
 
@@ -12,19 +13,16 @@ export interface HealthIssue {
 export interface ApiHealthResult {
   path: string
   method: string
-
   health: HealthStatus
-
   totalCalls: number
   successCalls: number
   errorCalls: number
-
+  serverErrorCalls: number
+  clientErrorCalls: number
   averageDuration: number
   maxDuration: number
-
   errorRate: number
   duplicateCalls: number
-
   issues: HealthIssue[]
 }
 
@@ -32,21 +30,18 @@ export function analyzeApiHealth(
   path: string,
   method?: string
 ): ApiHealthResult | null {
-  const logs = getRequestLogs().filter((log) => {
-    if (log.path !== path) {
-      return false
-    }
+  const normalizedPath = resolveApiRoute(path) ?? path
 
-    if (method && log.method !== method) {
-      return false
-    }
+  const logs = getRequestLogs().filter((log) => {
+    const normalizedLogPath = resolveApiRoute(log.path) ?? log.path
+
+    if (normalizedLogPath !== normalizedPath) return false
+    if (method && log.method !== method) return false
 
     return true
   })
 
-  if (logs.length === 0) {
-    return null
-  }
+  if (logs.length === 0) return null
 
   const totalCalls = logs.length
 
@@ -54,8 +49,17 @@ export function analyzeApiHealth(
     (log) => log.status >= 200 && log.status < 400
   ).length
 
+  // Keep the full HTTP error count for dashboard visibility.
   const errorCalls = logs.filter(
     (log) => log.status >= 400
+  ).length
+
+  const serverErrorCalls = logs.filter(
+    (log) => log.status >= 500
+  ).length
+
+  const clientErrorCalls = logs.filter(
+    (log) => log.status >= 400 && log.status < 500
   ).length
 
   const durations = logs.map((log) => log.duration)
@@ -66,107 +70,81 @@ export function analyzeApiHealth(
 
   const maxDuration = Math.max(...durations)
 
-  const errorRate = (errorCalls / totalCalls) * 100
+  // Use server failures for health severity so a single 401
+  // does not automatically make the endpoint critical.
+  const errorRate = (serverErrorCalls / totalCalls) * 100
 
-  // --------------------------------
-  // True duplicate request analysis
-  // --------------------------------
-  //
-  // The API monitor is responsible for deciding
-  // whether a request is an actual duplicate.
-  //
-  // The analyzer only counts those decisions.
-  //
   const duplicateCalls = logs.filter(
     (log) => log.isDuplicate === true
   ).length
 
   const issues: HealthIssue[] = []
 
-  // -------------------------
-  // Error rate analysis
-  // -------------------------
-
   if (errorRate >= 50) {
     issues.push({
-      type: "high-error-rate",
-      message: `API error rate is ${errorRate.toFixed(1)}%.`,
+      type: "high-server-error-rate",
+      message: `API server error rate is ${errorRate.toFixed(1)}%.`,
       severity: "high",
     })
   } else if (errorRate >= 20) {
     issues.push({
-      type: "elevated-error-rate",
-      message: `API error rate is ${errorRate.toFixed(1)}%.`,
+      type: "elevated-server-error-rate",
+      message: `API server error rate is ${errorRate.toFixed(1)}%.`,
       severity: "medium",
     })
   }
 
-  // -------------------------
-  // Response time analysis
-  // -------------------------
+  if (clientErrorCalls > 0) {
+    issues.push({
+      type: "client-errors",
+      message: `${clientErrorCalls} client error(s) (4xx) recorded. These may include expected authentication or validation responses.`,
+      severity: "low",
+    })
+  }
 
   if (averageDuration >= 2000) {
     issues.push({
       type: "very-slow-api",
-      message: `Average response time is ${Math.round(
-        averageDuration
-      )}ms.`,
+      message: `Average response time is ${Math.round(averageDuration)}ms.`,
       severity: "high",
     })
   } else if (averageDuration >= 1000) {
     issues.push({
       type: "slow-api",
-      message: `Average response time is ${Math.round(
-        averageDuration
-      )}ms.`,
+      message: `Average response time is ${Math.round(averageDuration)}ms.`,
       severity: "medium",
     })
   }
 
-  // -------------------------
-  // Duplicate request analysis
-  // -------------------------
+ if (duplicateCalls > 0) {
+  issues.push({
+    type: "duplicate-requests",
+    message: `${duplicateCalls} duplicate request(s) detected.`,
+    severity: "low",
+  })
+}
 
-  if (duplicateCalls > 0) {
-    issues.push({
-      type: "duplicate-requests",
-      message: `${duplicateCalls} duplicate request(s) detected.`,
-      severity: "low",
-    })
-  }
+let health: HealthStatus = "healthy"
 
-  // -------------------------
-  // Determine overall health
-  // -------------------------
-
-  let health: HealthStatus = "healthy"
-
-  if (
-    issues.some(
-      (issue) => issue.severity === "high"
-    )
-  ) {
-    health = "critical"
-  } else if (issues.length > 0) {
-    health = "warning"
-  }
+if (issues.some((issue) => issue.severity === "high")) {
+  health = "critical"
+} else if (issues.some((issue) => issue.severity === "medium")) {
+  health = "warning"
+}
 
   return {
-    path,
+    path: normalizedPath,
     method: method ?? logs[0].method,
-
     health,
-
     totalCalls,
     successCalls,
     errorCalls,
-
+    serverErrorCalls,
+    clientErrorCalls,
     averageDuration: Math.round(averageDuration),
     maxDuration: Math.round(maxDuration),
-
     errorRate: Number(errorRate.toFixed(1)),
     duplicateCalls,
-
     issues,
   }
 }

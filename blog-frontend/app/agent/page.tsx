@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
@@ -41,6 +42,7 @@ interface LogsResponse {
 interface IssueSummary {
   total: number;
   open: number;
+  investigating: number;
   resolved: number;
   recurring: number;
 }
@@ -49,7 +51,7 @@ interface Issue {
   id: string;
   apiPath: string;
   title: string;
-  status: "open" | "resolved";
+  status: "open" | "investigating" | "resolved";
   priority: "high" | "medium" | "low";
   occurrenceCount: number;
   bottleneck?: {
@@ -130,9 +132,7 @@ export default function AgentDashboard() {
     useState("/api/update-post");
 
   const [investigating, setInvestigating] = useState(false);
-
   const [investigationError, setInvestigationError] = useState("");
-
   const [investigation, setInvestigation] =
     useState<InvestigationResponse | null>(null);
 
@@ -202,9 +202,7 @@ export default function AgentDashboard() {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          path,
-        }),
+        body: JSON.stringify({ path }),
       });
 
       const data = (await response.json()) as InvestigationResponse;
@@ -234,7 +232,9 @@ export default function AgentDashboard() {
         const aiData = (await aiResponse.json()) as InvestigationAiResponse;
 
         if (!aiResponse.ok || !aiData.success) {
-          throw new Error(aiData.message ?? "Failed to retrieve AI diagnosis.");
+          throw new Error(
+            aiData.message ?? "Failed to retrieve AI diagnosis.",
+          );
         }
 
         if (aiData.status === "completed" && aiData.ai) {
@@ -266,6 +266,7 @@ export default function AgentDashboard() {
   const issueSummary = issues?.summary ?? {
     total: 0,
     open: 0,
+    investigating: 0,
     resolved: 0,
     recurring: 0,
   };
@@ -375,7 +376,7 @@ export default function AgentDashboard() {
           </a>
         </div>
 
-        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
           <StatCard
             label="Total Issues"
             value={issueSummary.total}
@@ -388,6 +389,13 @@ export default function AgentDashboard() {
             value={issueSummary.open}
             description="Issues needing attention"
             icon="!"
+          />
+
+          <StatCard
+            label="Investigating Issues"
+            value={issueSummary.investigating}
+            description="Issues currently being investigated"
+            icon="⌕"
           />
 
           <StatCard
@@ -441,14 +449,12 @@ export default function AgentDashboard() {
                   <th className="px-5 py-3 font-medium text-slate-500">
                     API / Issue
                   </th>
-
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Bottleneck
                   </th>
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Impact
                   </th>
-
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Priority
                   </th>
@@ -520,7 +526,9 @@ export default function AgentDashboard() {
                         className={`inline-flex rounded-full px-2.5 py-1 text-xs font-medium ${
                           issue.status === "open"
                             ? "bg-amber-50 text-amber-700"
-                            : "bg-emerald-50 text-emerald-700"
+                            : issue.status === "investigating"
+                              ? "bg-blue-50 text-blue-700"
+                              : "bg-emerald-50 text-emerald-700"
                         }`}
                       >
                         {issue.status}
@@ -552,7 +560,6 @@ export default function AgentDashboard() {
         <div className="border-b border-slate-200 px-5 py-4">
           <div>
             <h3 className="font-semibold text-slate-900">AI Investigation</h3>
-
             <p className="mt-1 text-xs text-slate-500">
               Analyze an API bottleneck using runtime, source and AI evidence.
             </p>
@@ -589,12 +596,10 @@ export default function AgentDashboard() {
             <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
               <div className="flex items-center gap-3">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
-
                 <div>
                   <p className="text-sm font-medium text-slate-800">
                     AI investigation in progress
                   </p>
-
                   <p className="mt-1 text-xs text-slate-500">
                     Analyzing source evidence and waiting for Manus AI.
                   </p>
@@ -647,7 +652,6 @@ export default function AgentDashboard() {
                     <h4 className="text-sm font-semibold text-amber-900">
                       Developer Recommendation
                     </h4>
-
                     <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold uppercase text-amber-800">
                       {
                         investigation.sourceAnalysis.developerRecommendation
@@ -675,7 +679,6 @@ export default function AgentDashboard() {
                     <h4 className="text-sm font-semibold text-slate-800">
                       Source Context
                     </h4>
-
                     <p className="mt-1 text-xs text-slate-500">
                       Lines{" "}
                       {investigation.sourceAnalysis.sourceContext.startLine}-
@@ -698,12 +701,10 @@ export default function AgentDashboard() {
                       <span className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-900 text-xs font-bold text-white">
                         AI
                       </span>
-
                       <div>
                         <h4 className="font-semibold text-slate-900">
                           AI Diagnosis
                         </h4>
-
                         <p className="text-xs text-slate-500">
                           Manus analysis based on collected evidence
                         </p>
@@ -716,19 +717,15 @@ export default function AgentDashboard() {
                       title="Root Cause"
                       content={aiDiagnosis.rootCause}
                     />
-
                     <AiSection
                       title="Evidence"
                       content={aiDiagnosis.evidence}
                     />
-
                     <AiSection title="Source" content={aiDiagnosis.source} />
-
                     <AiSection
                       title="Recommendation"
                       content={aiDiagnosis.recommendation}
                     />
-
                     <AiSection
                       title="Assumptions"
                       content={aiDiagnosis.assumptions}
@@ -748,7 +745,6 @@ export default function AgentDashboard() {
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h3 className="font-semibold text-slate-900">API Health</h3>
-
             <p className="mt-1 text-xs text-slate-500">
               Current health of monitored endpoints
             </p>
@@ -774,19 +770,15 @@ export default function AgentDashboard() {
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Endpoint
                   </th>
-
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Calls
                   </th>
-
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Avg. Time
                   </th>
-
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Errors
                   </th>
-
                   <th className="px-5 py-3 font-medium text-slate-500">
                     Health
                   </th>
@@ -804,7 +796,6 @@ export default function AgentDashboard() {
                         <span className="rounded bg-slate-100 px-2 py-1 text-[11px] font-semibold text-slate-600">
                           {api.method}
                         </span>
-
                         <span className="font-medium text-slate-800">
                           {api.path}
                         </span>
@@ -814,15 +805,12 @@ export default function AgentDashboard() {
                     <td className="px-5 py-4 text-slate-600">
                       {api.totalCalls}
                     </td>
-
                     <td className="px-5 py-4 text-slate-600">
                       {api.averageDuration} ms
                     </td>
-
                     <td className="px-5 py-4 text-slate-600">
                       {api.errorCalls}
                     </td>
-
                     <td className="px-5 py-4">
                       <HealthBadge health={api.health} />
                     </td>
@@ -839,7 +827,6 @@ export default function AgentDashboard() {
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
             <h3 className="font-semibold text-slate-900">Recent Requests</h3>
-
             <p className="mt-1 text-xs text-slate-500">
               Latest requests captured by the monitoring agent
             </p>
@@ -868,7 +855,6 @@ export default function AgentDashboard() {
                   <span className="w-12 text-xs font-semibold text-slate-500">
                     {log.method}
                   </span>
-
                   <span className="text-sm font-medium text-slate-800">
                     {log.path}
                   </span>
@@ -876,7 +862,6 @@ export default function AgentDashboard() {
 
                 <div className="flex items-center gap-5 text-xs text-slate-500">
                   <span>{log.duration} ms</span>
-
                   <span
                     className={
                       log.status >= 400
@@ -886,7 +871,6 @@ export default function AgentDashboard() {
                   >
                     {log.status}
                   </span>
-
                   <span>{formatTime(log.timestamp)}</span>
                 </div>
               </div>
@@ -910,7 +894,6 @@ function InvestigationMetric({
       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
         {label}
       </p>
-
       <p className="mt-2 truncate text-sm font-semibold text-slate-900">
         {value}
       </p>
@@ -928,7 +911,6 @@ function InvestigationPanel({
   return (
     <div className="rounded-lg border border-slate-200 p-4">
       <h4 className="text-sm font-semibold text-slate-900">{title}</h4>
-
       <p className="mt-2 text-sm leading-6 text-slate-600">{content}</p>
     </div>
   );
@@ -940,7 +922,6 @@ function AiSection({ title, content }: { title: string; content: string }) {
       <h5 className="text-xs font-semibold uppercase tracking-wide text-slate-500">
         {title}
       </h5>
-
       <p className="mt-2 text-sm leading-6 text-slate-700">{content}</p>
     </div>
   );

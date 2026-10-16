@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useState } from "react";
@@ -15,6 +16,8 @@ type ApiStat = {
   totalCalls: number;
   successCalls: number;
   errorCalls: number;
+  serverErrorCalls: number;
+  clientErrorCalls: number;
   averageDuration: number;
   maxDuration: number;
   duplicateCalls: number;
@@ -92,9 +95,11 @@ export default function ApiHealthPage() {
   }
 
   useEffect(() => {
-    fetchStats();
+    void fetchStats();
 
-    const interval = setInterval(fetchStats, 5000);
+    const interval = setInterval(() => {
+      void fetchStats();
+    }, 5000);
 
     return () => clearInterval(interval);
   }, []);
@@ -178,7 +183,7 @@ export default function ApiHealthPage() {
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Live API performance metrics.
+            Live API performance metrics. Statistics refresh every 5 seconds.
           </p>
         </div>
 
@@ -188,18 +193,20 @@ export default function ApiHealthPage() {
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[1100px] text-left">
+            <table className="w-full min-w-[1300px] text-left">
               <thead className="bg-slate-50">
                 <tr className="border-b border-slate-200 text-xs uppercase tracking-wide text-slate-500">
                   <th className="px-6 py-4">API</th>
                   <th className="px-6 py-4">Health</th>
                   <th className="px-6 py-4">Calls</th>
                   <th className="px-6 py-4">Success</th>
-                  <th className="px-6 py-4">Errors</th>
+                  <th className="px-6 py-4">All Errors</th>
+                  <th className="px-6 py-4">Server Errors</th>
+                  <th className="px-6 py-4">Client Errors</th>
                   <th className="px-6 py-4">Avg Time</th>
                   <th className="px-6 py-4">Max Time</th>
                   <th className="px-6 py-4">Duplicates</th>
-                  <th className="px-6 py-4">Error Rate</th>
+                  <th className="px-6 py-4">Server Error Rate</th>
                   <th className="px-6 py-4">Issues</th>
                 </tr>
               </thead>
@@ -233,14 +240,24 @@ export default function ApiHealthPage() {
                       {api.totalCalls}
                     </td>
 
-                    {/* Success */}
+                    {/* Successful Calls */}
                     <td className="px-6 py-5 text-green-600">
                       {api.successCalls}
                     </td>
 
-                    {/* Errors */}
+                    {/* All HTTP Errors */}
                     <td className="px-6 py-5 text-red-600">
                       {api.errorCalls}
+                    </td>
+
+                    {/* Server Errors (5xx) */}
+                    <td className="px-6 py-5 text-red-600">
+                      {api.serverErrorCalls}
+                    </td>
+
+                    {/* Client Errors (4xx) */}
+                    <td className="px-6 py-5 text-amber-600">
+                      {api.clientErrorCalls}
                     </td>
 
                     {/* Average Duration */}
@@ -248,7 +265,7 @@ export default function ApiHealthPage() {
                       {api.averageDuration} ms
                     </td>
 
-                    {/* Max Duration */}
+                    {/* Maximum Duration */}
                     <td className="px-6 py-5">
                       {api.maxDuration} ms
                     </td>
@@ -258,7 +275,7 @@ export default function ApiHealthPage() {
                       {api.duplicateCalls}
                     </td>
 
-                    {/* Error Rate */}
+                    {/* Server Error Rate */}
                     <td className="px-6 py-5">
                       {api.errorRate}%
                     </td>

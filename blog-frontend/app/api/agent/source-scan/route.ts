@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server"
 import fs from "fs"
 import path from "path"
@@ -13,119 +14,94 @@ function apiPathToRouteCandidates(apiPath: string): string[] {
 
   const segments = cleanPath.split("/")
 
-  // Remove "api" because we already search inside app/api
+  // The route files are searched inside app/api.
   if (segments[0] === "api") {
     segments.shift()
   }
 
+  const apiRoot = path.join(process.cwd(), "app", "api")
   const candidates: string[] = []
 
+  // First, try the exact static route.
+  candidates.push(
+    path.join(apiRoot, ...segments, "route.ts"),
+    path.join(apiRoot, ...segments, "route.js")
+  )
+
+  // Then try matching Next.js dynamic route segments.
   // Example:
-  // /api/update-post
-  //
-  // app/api/update-post/route.ts
+  // status/monitoring-test -> status/[taskId]/route.ts
+  for (let i = segments.length - 1; i >= 0; i--) {
+    const dynamicSegments = [...segments]
+    dynamicSegments[i] = "[...dynamic]"
 
-  candidates.push(
-    path.join(
-      process.cwd(),
-      "app",
-      "api",
-      ...segments,
-      "route.ts"
+    // Catch-all routes are not a valid substitute for every
+    // dynamic route, so check the common single-segment form.
+    dynamicSegments[i] = "[taskId]"
+
+    candidates.push(
+      path.join(apiRoot, ...dynamicSegments, "route.ts"),
+      path.join(apiRoot, ...dynamicSegments, "route.js")
     )
-  )
+  }
 
-  // Also support route.js
-  candidates.push(
-    path.join(
-      process.cwd(),
-      "app",
-      "api",
-      ...segments,
-      "route.js"
-    )
-  )
-
-  return candidates
+  // Remove duplicate candidate paths.
+  return [...new Set(candidates)]
 }
 
-export async function GET(
-  request: Request
-) {
+export async function GET(request: Request) {
   try {
-    const { searchParams } = new URL(
-      request.url
-    )
-
+    const { searchParams } = new URL(request.url)
     const apiPath = searchParams.get("path")
 
     if (!apiPath) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Missing API path. Example: ?path=/api/update-post",
+          message: "Missing API path. Example: ?path=/api/update-post",
         },
         { status: 400 }
       )
     }
 
-    const candidates =
-      apiPathToRouteCandidates(apiPath)
+    const candidates = apiPathToRouteCandidates(apiPath)
 
     for (const filePath of candidates) {
-      if (fs.existsSync(filePath)) {
-        const source = fs.readFileSync(
-          filePath,
-          "utf-8"
-        )
-
-        const relativePath =
-          path.relative(
-            process.cwd(),
-            filePath
-          )
-
-        return NextResponse.json({
-          success: true,
-          found: true,
-          apiPath,
-          filePath: relativePath.replace(
-            /\\/g,
-            "/"
-          ),
-          source,
-        })
+      if (!fs.existsSync(filePath)) {
+        continue
       }
+
+      const source = fs.readFileSync(filePath, "utf-8")
+      const relativePath = path
+        .relative(process.cwd(), filePath)
+        .split(path.sep)
+        .join("/")
+
+      return NextResponse.json({
+        success: true,
+        found: true,
+        apiPath,
+        filePath: relativePath,
+        source,
+      })
     }
 
     return NextResponse.json({
       success: true,
       found: false,
       apiPath,
-      message:
-        "Source file could not be found.",
-      searchedPaths: candidates.map(
-        (filePath) =>
-          path
-            .relative(
-              process.cwd(),
-              filePath
-            )
-            .replace(/\\/g, "/")
+      message: "Source file could not be found.",
+      searchedPaths: candidates.map((filePath) =>
+        path.relative(process.cwd(), filePath).split(path.sep).join("/")
       ),
     })
   } catch (error) {
-    console.error(
-      "Source scan error:",
-      error
-    )
+    console.error("Source scan error:", error)
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          "Failed to scan API source.",
+        message: "Failed to scan API source.",
       },
       { status: 500 }
     )

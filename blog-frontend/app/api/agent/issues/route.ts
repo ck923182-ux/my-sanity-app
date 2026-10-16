@@ -1,9 +1,6 @@
 
 import { NextResponse } from "next/server"
-
-import {
-  getIssues,
-} from "@/agent/issue-store"
+import { getIssues } from "@/agent/issue-store"
 
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
@@ -12,26 +9,29 @@ export async function GET() {
   try {
     const issues = getIssues()
 
-    const openIssues = issues.filter(
+    const open = issues.filter(
       (issue) => issue.status === "open"
-    )
+    ).length
 
-    const resolvedIssues = issues.filter(
+    const investigating = issues.filter(
+      (issue) => issue.status === "investigating"
+    ).length
+
+    const resolved = issues.filter(
       (issue) => issue.status === "resolved"
-    )
+    ).length
 
     return NextResponse.json({
       success: true,
-
       summary: {
         total: issues.length,
-        open: openIssues.length,
-        resolved: resolvedIssues.length,
+        open,
+        investigating,
+        resolved,
         recurring: issues.filter(
           (issue) => issue.occurrenceCount > 1
         ).length,
       },
-
       issues,
     })
   } catch (error) {
@@ -42,9 +42,7 @@ export async function GET() {
         success: false,
         error: "Failed to load issue history.",
       },
-      {
-        status: 500,
-      }
+      { status: 500 }
     )
   }
 }
