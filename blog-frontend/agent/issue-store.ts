@@ -249,3 +249,45 @@ export function resolveIssue(
 ): IssueHistoryRecord | null {
   return updateIssueStatus(id, "resolved");
 }
+
+export function getIssueByInvestigationId(
+  investigationId: string,
+): IssueHistoryRecord | undefined {
+  return readIssues().find(
+    (issue) =>
+      issue.latestInvestigationId === investigationId ||
+      issue.investigationIds.includes(investigationId),
+  );
+}
+
+
+export function updateIssueStatusForInvestigation(
+  investigationId: string,
+  status: IssueStatus,
+): IssueHistoryRecord | null {
+  const issue = getIssueByInvestigationId(investigationId);
+
+  if (!issue) {
+    console.warn("ISSUE NOT FOUND FOR INVESTIGATION:", {
+      investigationId,
+      status,
+    });
+
+    return null;
+  }
+
+  // Prevent an older investigation from changing the status
+  // of an issue that is now linked to a newer investigation.
+  if (issue.latestInvestigationId !== investigationId) {
+    console.warn("STALE INVESTIGATION STATUS UPDATE SKIPPED:", {
+      issueId: issue.id,
+      requestedInvestigationId: investigationId,
+      latestInvestigationId: issue.latestInvestigationId,
+      requestedStatus: status,
+    });
+
+    return null;
+  }
+
+  return updateIssueStatus(issue.id, status);
+}

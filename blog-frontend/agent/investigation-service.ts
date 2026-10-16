@@ -9,12 +9,12 @@ import {
 
 import {
   upsertIssue,
+  updateIssueStatusForInvestigation,
 } from "@/agent/issue-store"
 
 type SourceAnalysisResponse = {
   success: boolean
   found: boolean
-
   apiPath?: string
   filePath?: string
   operations?: unknown[]
@@ -57,57 +57,35 @@ type SourceAnalysisResponse = {
 
 export async function createInvestigation(
   apiPath: string,
-  requestUrl: string
+  requestUrl: string,
 ) {
-  /*
-   * Step 1:
-   * Run source analysis.
-   */
-
   const sourceAnalysisUrl = new URL(
     "/api/agent/source-analysis",
-    requestUrl
+    requestUrl,
   )
 
-  sourceAnalysisUrl.searchParams.set(
-    "path",
-    apiPath
-  )
+  sourceAnalysisUrl.searchParams.set("path", apiPath)
 
   const sourceAnalysisResponse = await fetch(
     sourceAnalysisUrl.toString(),
     {
       method: "GET",
       cache: "no-store",
-    }
+    },
   )
 
   const sourceAnalysis =
     (await sourceAnalysisResponse.json()) as SourceAnalysisResponse
 
-  if (
-    !sourceAnalysisResponse.ok ||
-    !sourceAnalysis.success
-  ) {
+  if (!sourceAnalysisResponse.ok || !sourceAnalysis.success) {
     throw new Error("Source analysis failed.")
   }
 
-  /*
-   * Step 2:
-   * Make sure the source file exists.
-   */
-
   if (!sourceAnalysis.found) {
-    throw new Error(
-      `Source file not found for ${apiPath}.`
-    )
+    throw new Error(`Source file not found for ${apiPath}.`)
   }
 
-  /*
-   * Step 3:
-   * Send source evidence to Manus AI.
-   */
-
+  // Create the existing Manus task. No additional task is created.
   const aiTask = await createSourceAnalysisTask({
     apiPath,
 
@@ -119,7 +97,6 @@ export async function createInvestigation(
       : null,
 
     bottleneck: sourceAnalysis.bottleneck ?? null,
-
     rootCause: sourceAnalysis.rootCause ?? null,
 
     developerRecommendation:
@@ -128,36 +105,19 @@ export async function createInvestigation(
     sourceContext: sourceAnalysis.sourceContext ?? null,
   })
 
-  /*
-   * Step 4:
-   * Create investigation ID.
-   */
-
   const investigationId = crypto.randomUUID()
-
-  /*
-   * Step 5:
-   * Save the investigation.
-   */
 
   addInvestigation({
     id: investigationId,
-
     apiPath,
-
     createdAt: Date.now(),
-
     status: "processing",
-
     taskId: aiTask.taskId,
 
     sourceAnalysis: {
       filePath: sourceAnalysis.filePath,
-
       runtime: sourceAnalysis.runtime ?? null,
-
       bottleneck: sourceAnalysis.bottleneck ?? null,
-
       rootCause: sourceAnalysis.rootCause ?? null,
 
       developerRecommendation:
@@ -169,60 +129,58 @@ export async function createInvestigation(
     ai: null,
   })
 
-  /*
-   * Step 6:
-   * Create or update issue history.
-   *
-   * Each new investigation is linked to an issue.
-   * Matching issues have their occurrence count increased.
-   */
-
   const issue = upsertIssue({
     apiPath,
-
     investigationId,
 
     priority:
-      sourceAnalysis.developerRecommendation?.priority ??
-      "medium",
+      sourceAnalysis.developerRecommendation?.priority ?? "medium",
 
     bottleneck: sourceAnalysis.bottleneck ?? null,
-
     rootCause: sourceAnalysis.rootCause ?? null,
 
     recommendation: sourceAnalysis.developerRecommendation
       ? {
-          title:
-            sourceAnalysis.developerRecommendation.title,
-
+          title: sourceAnalysis.developerRecommendation.title,
           recommendation:
             sourceAnalysis.developerRecommendation.recommendation,
-
-          reason:
-            sourceAnalysis.developerRecommendation.reason,
-
+          reason: sourceAnalysis.developerRecommendation.reason,
           sourceLines:
             sourceAnalysis.developerRecommendation.sourceLines,
         }
       : null,
   })
 
-  console.log("ISSUE HISTORY UPDATED:", {
-    issueId: issue.id,
-    apiPath: issue.apiPath,
-    occurrenceCount: issue.occurrenceCount,
-    status: issue.status,
-  })
+  // Mark the linked issue as investigating.
+
+  // Mark the linked issue as investigating.
+  const updatedIssue = updateIssueStatusForInvestigation(
+    investigationId,
+    "investigating",
+  );
+
+  if (!updatedIssue) {
+    console.error("ISSUE LIFECYCLE UPDATE FAILED:", {
+      issueId: issue.id,
+      investigationId,
+      apiPath,
+    });
+  }
+
+  console.log("ISSUE LIFECYCLE UPDATED:", {
+    issueId: updatedIssue?.id ?? issue.id,
+    investigationId,
+    apiPath,
+    status: updatedIssue?.status ?? issue.status,
+    statusUpdateSucceeded: updatedIssue !== null,
+  });
 
   return {
     investigationId,
-
     apiPath,
-
     taskId: aiTask.taskId,
-
     sourceAnalysis,
+    issueId: updatedIssue?.id ?? issue.id,
+  };
 
-    issueId: issue.id,
-  }
 }

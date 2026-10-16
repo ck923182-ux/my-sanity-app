@@ -4,7 +4,7 @@
     "fingerprint": "/api/update-post::sanity.patch.commit",
     "apiPath": "/api/update-post",
     "title": "Slow operation: sanity.patch.commit",
-    "status": "investigating",
+    "status": "resolved",
     "priority": "high",
     "firstDetectedAt": 1791648547089,
     "lastDetectedAt": 1791982819722,
@@ -39,6 +39,6 @@
         19
       ]
     },
-    "updatedAt": 1792173902402
+    "updatedAt": 1792174255220
   }
 ]

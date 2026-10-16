@@ -167,15 +167,23 @@ export async function getSourceAnalysisDiagnosis(
     structuredResult
       .structured_output_result
 
-  if (!result.success) {
-    throw new Error(
-      result.error ??
-        "Source analysis diagnosis failed"
-    )
-  }
-
+ if (!result.success) {
+  throw new SourceAnalysisTaskFailedError(
+    result.error ??
+      "Source analysis diagnosis failed"
+  )
+}
   return result.value as SourceAnalysisDiagnosis
 }
+
+
+export class SourceAnalysisTaskFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "SourceAnalysisTaskFailedError";
+  }
+}
+
 
 
 // /api/update-post

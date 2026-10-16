@@ -1,0 +1,971 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI API Monitoring Agent — Full Flow</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: #0d1117;
+      color: #e6edf3;
+      padding: 40px 20px 80px;
+      min-width: 1300px;
+    }
+
+    h1 {
+      text-align: center;
+      font-size: 22px;
+      font-weight: 700;
+      color: #f0f6fc;
+      margin-bottom: 6px;
+      letter-spacing: 0.5px;
+    }
+
+    .subtitle {
+      text-align: center;
+      font-size: 13px;
+      color: #8b949e;
+      margin-bottom: 48px;
+    }
+
+    /* ── LEGEND ── */
+    .legend {
+      display: flex;
+      justify-content: center;
+      gap: 24px;
+      margin-bottom: 40px;
+      flex-wrap: wrap;
+    }
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: #8b949e;
+    }
+    .legend-dot {
+      width: 12px; height: 12px;
+      border-radius: 3px;
+    }
+
+    /* ── MAIN GRID ── */
+    .diagram {
+      max-width: 1260px;
+      margin: 0 auto;
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    /* ── ROWS ── */
+    .row {
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+      position: relative;
+    }
+
+    .row.center { justify-content: center; }
+
+    /* ── NODES ── */
+    .node {
+      border-radius: 10px;
+      padding: 14px 18px;
+      position: relative;
+      min-width: 190px;
+      max-width: 220px;
+    }
+
+    .node-title {
+      font-size: 11px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 5px;
+      opacity: 0.7;
+    }
+
+    .node-name {
+      font-size: 14px;
+      font-weight: 700;
+      margin-bottom: 4px;
+    }
+
+    .node-desc {
+      font-size: 11px;
+      opacity: 0.75;
+      line-height: 1.5;
+    }
+
+    /* Node color themes */
+    .node-route    { background: #1c2128; border: 1.5px solid #388bfd; }
+    .node-route    .node-title { color: #388bfd; }
+
+    .node-monitor  { background: #1c2128; border: 1.5px solid #bc8cff; }
+    .node-monitor  .node-title { color: #bc8cff; }
+
+    .node-store    { background: #1c2128; border: 1.5px solid #3fb950; }
+    .node-store    .node-title { color: #3fb950; }
+
+    .node-analyzer { background: #1c2128; border: 1.5px solid #d29922; }
+    .node-analyzer .node-title { color: #d29922; }
+
+    .node-ai       { background: #1c2128; border: 1.5px solid #f78166; }
+    .node-ai       .node-title { color: #f78166; }
+
+    .node-issue    { background: #1c2128; border: 1.5px solid #58a6ff; }
+    .node-issue    .node-title { color: #58a6ff; }
+
+    .node-api      { background: #161b22; border: 1.5px solid #30363d; }
+    .node-api      .node-title { color: #8b949e; }
+
+    .node-db       { background: #0d2b1a; border: 1.5px solid #3fb950; }
+    .node-db       .node-title { color: #3fb950; }
+
+    .node-json     { background: #1a1a2e; border: 1.5px solid #6e40c9; }
+    .node-json     .node-title { color: #a371f7; }
+
+    .node-manus    { background: #2d1b00; border: 1.5px solid #f0883e; }
+    .node-manus    .node-title { color: #f0883e; }
+
+    /* ── ARROWS (using divs + pseudo) ── */
+    .arrow-down {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 36px;
+      position: relative;
+    }
+
+    .arrow-down::before {
+      content: '';
+      width: 2px;
+      height: 28px;
+      background: #30363d;
+      position: absolute;
+      top: 0;
+    }
+
+    .arrow-down::after {
+      content: '▼';
+      font-size: 10px;
+      color: #30363d;
+      position: absolute;
+      bottom: 0;
+    }
+
+    .arrow-down.blue::before  { background: #388bfd; }
+    .arrow-down.blue::after   { color: #388bfd; }
+    .arrow-down.purple::before{ background: #bc8cff; }
+    .arrow-down.purple::after { color: #bc8cff; }
+    .arrow-down.green::before { background: #3fb950; }
+    .arrow-down.green::after  { color: #3fb950; }
+    .arrow-down.yellow::before{ background: #d29922; }
+    .arrow-down.yellow::after { color: #d29922; }
+    .arrow-down.red::before   { background: #f78166; }
+    .arrow-down.red::after    { color: #f78166; }
+    .arrow-down.orange::before{ background: #f0883e; }
+    .arrow-down.orange::after { color: #f0883e; }
+
+    .arrow-right {
+      display: flex;
+      align-items: center;
+      width: 40px;
+      position: relative;
+      height: 52px;
+    }
+
+    .arrow-right::before {
+      content: '';
+      height: 2px;
+      width: 32px;
+      background: #30363d;
+    }
+
+    .arrow-right::after {
+      content: '▶';
+      font-size: 10px;
+      color: #30363d;
+      position: absolute;
+      right: 0;
+    }
+
+    .arrow-right.blue::before  { background: #388bfd; }
+    .arrow-right.blue::after   { color: #388bfd; }
+    .arrow-right.purple::before{ background: #bc8cff; }
+    .arrow-right.purple::after { color: #bc8cff; }
+    .arrow-right.green::before { background: #3fb950; }
+    .arrow-right.green::after  { color: #3fb950; }
+    .arrow-right.yellow::before{ background: #d29922; }
+    .arrow-right.yellow::after { color: #d29922; }
+    .arrow-right.orange::before{ background: #f0883e; }
+    .arrow-right.orange::after { color: #f0883e; }
+    .arrow-right.red::before   { background: #f78166; }
+    .arrow-right.red::after    { color: #f78166; }
+
+    /* ── BADGE PILLS ── */
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 20px;
+      font-size: 10px;
+      font-weight: 600;
+      margin-top: 6px;
+    }
+    .badge-get    { background: #0d4429; color: #3fb950; }
+    .badge-post   { background: #2d1b00; color: #f0883e; }
+    .badge-patch  { background: #1a1a2e; color: #a371f7; }
+    .badge-async  { background: #161b22; color: #8b949e; }
+    .badge-auto   { background: #1f1035; color: #bc8cff; }
+    .badge-sqlite { background: #0d2b1a; color: #3fb950; }
+    .badge-json   { background: #1a1a2e; color: #a371f7; }
+    .badge-ai     { background: #2d1b00; color: #f0883e; }
+    .badge-fire   { background: #1a0a00; color: #d29922; }
+
+    /* ── SECTION LABELS ── */
+    .section-label {
+      text-align: center;
+      font-size: 10px;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 1.2px;
+      padding: 3px 12px;
+      border-radius: 4px;
+      margin: 8px auto 8px;
+      display: inline-block;
+    }
+
+    .section-wrap {
+      display: flex;
+      justify-content: center;
+    }
+
+    /* ── COLUMNS for wide layout ── */
+    .col-group {
+      display: flex;
+      flex-direction: row;
+      align-items: flex-start;
+      justify-content: center;
+      gap: 0;
+    }
+
+    /* ── GATE BLOCK ── */
+    .gate-block {
+      background: #161b22;
+      border: 1.5px solid #30363d;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 11px;
+      color: #8b949e;
+      min-width: 200px;
+    }
+    .gate-block .gate-title {
+      font-weight: 700;
+      color: #d29922;
+      margin-bottom: 6px;
+      font-size: 11px;
+    }
+    .gate-block ul {
+      list-style: none;
+      padding: 0;
+    }
+    .gate-block li {
+      padding: 2px 0;
+      display: flex;
+      gap: 6px;
+    }
+    .gate-block li::before {
+      content: '✗';
+      color: #f78166;
+      font-weight: 700;
+    }
+    .gate-block li.pass::before {
+      content: '✓';
+      color: #3fb950;
+    }
+
+    /* ── STORAGE ROW ── */
+    .storage-row {
+      display: flex;
+      gap: 24px;
+      justify-content: center;
+      align-items: flex-start;
+      margin-top: 16px;
+    }
+
+    /* ── API ENDPOINTS GRID ── */
+    .endpoints-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      max-width: 1260px;
+      margin: 0 auto;
+    }
+
+    .endpoint-card {
+      background: #161b22;
+      border: 1px solid #21262d;
+      border-radius: 8px;
+      padding: 12px 14px;
+    }
+
+    .endpoint-card .ep-method {
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 7px;
+      border-radius: 4px;
+      display: inline-block;
+      margin-bottom: 7px;
+    }
+
+    .ep-get  { background: #0d4429; color: #3fb950; }
+    .ep-post { background: #2d1b00; color: #f0883e; }
+    .ep-patch{ background: #1a1a2e; color: #a371f7; }
+
+    .endpoint-card .ep-path {
+      font-size: 12px;
+      font-weight: 600;
+      color: #e6edf3;
+      margin-bottom: 5px;
+      word-break: break-all;
+    }
+
+    .endpoint-card .ep-desc {
+      font-size: 11px;
+      color: #8b949e;
+      line-height: 1.4;
+    }
+
+    /* ── STEP NUMBERS ── */
+    .step-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 20px; height: 20px;
+      border-radius: 50%;
+      font-size: 10px;
+      font-weight: 700;
+      flex-shrink: 0;
+      margin-right: 6px;
+    }
+
+    .step-num.blue   { background: #1f3d7a; color: #388bfd; }
+    .step-num.purple { background: #2d1f5e; color: #bc8cff; }
+    .step-num.green  { background: #0d2b1a; color: #3fb950; }
+    .step-num.yellow { background: #2d2000; color: #d29922; }
+    .step-num.orange { background: #2d1b00; color: #f0883e; }
+
+    /* ── DIVIDER ── */
+    .divider {
+      border: none;
+      border-top: 1px solid #21262d;
+      margin: 48px 0 40px;
+    }
+
+    h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #8b949e;
+      text-align: center;
+      margin-bottom: 20px;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .phase-label {
+      display: inline-block;
+      background: #1a1a2e;
+      color: #a371f7;
+      border: 1px solid #6e40c9;
+      border-radius: 4px;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 2px 8px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .pending-label {
+      background: #2d0a0a;
+      color: #f78166;
+      border-color: #f78166;
+    }
+
+    /* ── WIDE NODE for investigation steps ── */
+    .node-wide {
+      min-width: 320px;
+      max-width: 380px;
+    }
+
+    .steps-list {
+      list-style: none;
+      padding: 0;
+      margin-top: 8px;
+    }
+
+    .steps-list li {
+      display: flex;
+      align-items: flex-start;
+      font-size: 11px;
+      color: #8b949e;
+      padding: 3px 0;
+      line-height: 1.4;
+      border-bottom: 1px solid #21262d;
+    }
+
+    .steps-list li:last-child { border-bottom: none; }
+
+    /* ── TRIGGER BLOCK ── */
+    .trigger-block {
+      background: #1a1a00;
+      border: 1.5px solid #d29922;
+      border-radius: 8px;
+      padding: 12px 16px;
+      min-width: 240px;
+      max-width: 260px;
+    }
+    .trigger-block .t-title {
+      font-size: 11px;
+      font-weight: 700;
+      color: #d29922;
+      text-transform: uppercase;
+      letter-spacing: 0.8px;
+      margin-bottom: 8px;
+    }
+    .trigger-block .t-row {
+      font-size: 11px;
+      color: #e6edf3;
+      padding: 3px 0;
+      display: flex;
+      gap: 6px;
+      align-items: flex-start;
+    }
+    .trigger-block .t-row .t-or {
+      color: #8b949e;
+      font-style: italic;
+      font-size: 10px;
+      margin-left: 4px;
+    }
+    .trigger-block .t-icon { color: #d29922; }
+  </style>
+</head>
+<body>
+
+<h1>🤖 AI API Monitoring Agent — Full System Flow</h1>
+<p class="subtitle">blog-frontend / Next.js · Manus AI · SQLite + JSON · 16 API Endpoints</p>
+
+<!-- LEGEND -->
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#388bfd"></div>API Route / Instrumentation</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#bc8cff"></div>Monitor / Analyzer</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#3fb950"></div>Storage (SQLite)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#d29922"></div>Decision / Trigger</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f0883e"></div>Manus AI</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#a371f7"></div>Persistence (JSON)</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#58a6ff"></div>Issue Tracker</div>
+</div>
+
+<div class="diagram">
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ROW 1 — ENTRY POINT -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-wrap"><span class="section-label" style="background:#0d2040;color:#388bfd;">① Entry — API Request</span></div>
+  <div class="row center">
+    <div class="node node-route" style="min-width:340px;max-width:380px;">
+      <div class="node-title">Your API Route</div>
+      <div class="node-name">Any monitored handler</div>
+      <div class="node-desc">
+        e.g. <code style="color:#388bfd">POST /api/update-post</code><br/>
+        Wrapped with <code style="color:#bc8cff">withApiMonitoring()</code><br/>
+        or <code style="color:#bc8cff">monitorApi()</code>
+      </div>
+      <span class="badge badge-get">GET</span>
+      <span class="badge badge-post">POST</span>
+      <span class="badge badge-patch">PATCH</span>
+    </div>
+  </div>
+
+  <div class="arrow-down blue"></div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ROW 2 — API MONITOR -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-wrap"><span class="section-label" style="background:#1a0a2e;color:#bc8cff;">② Runtime Instrumentation</span></div>
+  <div class="row center">
+    <div class="node node-monitor" style="min-width:340px;max-width:380px;">
+      <div class="node-title">agent/runtime/api-monitor.ts</div>
+      <div class="node-name">monitorApi() / withApiMonitoring()</div>
+      <div class="node-desc">
+        <ol style="padding-left:14px;font-size:11px;line-height:1.8;">
+          <li>Generate <b>requestId</b> (UUID)</li>
+          <li>Read body → build <b>fingerprint</b> (METHOD:PATH:PARAMS:BODY)</li>
+          <li><b>reserveRequest()</b> → atomic SQLite duplicate check (5s window)</li>
+          <li>Run handler + collect <b>operation timings</b> via OperationRecorder</li>
+          <li>Record total <b>duration</b> (performance.now)</li>
+          <li><b>addRequestLog()</b> → SQLite</li>
+          <li><code style="color:#d29922">void</code> triggerAutomaticInvestigation() ← fire &amp; forget</li>
+        </ol>
+      </div>
+      <span class="badge badge-fire">🔥 Non-blocking auto-trigger</span>
+    </div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ROW 3 — SPLIT: SQLITE + AUTO-INVESTIGATOR -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div style="display:flex;justify-content:center;gap:120px;margin-top:0;">
+    <div class="arrow-down green" style="margin-left:0;"></div>
+    <div class="arrow-down yellow"></div>
+  </div>
+
+  <div class="section-wrap" style="margin-bottom:0;"><span class="section-label" style="background:#0d2b1a;color:#3fb950;">③ Storage</span></div>
+
+  <div class="col-group" style="gap:80px;align-items:flex-start;">
+
+    <!-- LEFT: SQLite -->
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="node node-db" style="min-width:280px;">
+        <div class="node-title">SQLite Database</div>
+        <div class="node-name">agent/runtime/database.ts</div>
+        <div class="node-desc">
+          <b>api_request_logs</b> table<br/>
+          id, method, path, status, duration,<br/>
+          timestamp, fingerprint, isDuplicate,<br/>
+          duplicateOf, operations_json<br/><br/>
+          <b>api_request_reservations</b> table<br/>
+          fingerprint + 5s TTL window<br/>
+          Max <b>5,000</b> rows (auto-trimmed)
+        </div>
+        <span class="badge badge-sqlite">better-sqlite3 · WAL mode</span>
+      </div>
+    </div>
+
+    <!-- RIGHT: Auto-Investigator -->
+    <div style="display:flex;flex-direction:column;align-items:center;">
+      <div class="section-wrap" style="margin-bottom:8px;"><span class="section-label" style="background:#2d2000;color:#d29922;">④ Decision Engine</span></div>
+      <div class="trigger-block">
+        <div class="t-title">automatic-investigator.ts</div>
+        <div class="t-row"><span class="t-icon">✗</span> Path is /api/agent/* → SKIP</div>
+        <div class="t-row"><span class="t-icon">✗</span> Last request was 401/403 → SKIP</div>
+        <div class="t-row"><span class="t-icon">✗</span> &lt; 3 requests total → SKIP</div>
+        <div class="t-row"><span class="t-icon">✗</span> Investigation &lt; 10 min ago → SKIP</div>
+        <div style="border-top:1px solid #30363d;margin:8px 0;"></div>
+        <div class="t-row"><span class="t-icon">🟡</span> <b>TRIGGER A:</b> serverErrors ≥ 2<br/>&nbsp;&nbsp;&nbsp;AND server error rate ≥ 50%</div>
+        <div class="t-row"><span class="t-icon" style="margin-left:4px;font-size:10px;color:#8b949e">OR</span></div>
+        <div class="t-row"><span class="t-icon">🟡</span> <b>TRIGGER B:</b> avgDuration ≥ 2000ms</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Arrow from auto-investigator down -->
+  <div style="display:flex;justify-content:center;margin-left:400px;">
+    <div class="arrow-down yellow"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ROW 4 — INVESTIGATION SERVICE -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-wrap"><span class="section-label" style="background:#1a1a2e;color:#a371f7;">⑤ Investigation Orchestration</span></div>
+  <div class="row center">
+    <div class="node node-analyzer node-wide" style="min-width:640px;max-width:700px;">
+      <div class="node-title">agent/investigation-service.ts</div>
+      <div class="node-name">createInvestigation(apiPath, requestUrl)</div>
+      <ul class="steps-list">
+        <li>
+          <span class="step-num yellow">1</span>
+          <span><b>GET /api/agent/source-analysis?path=…</b><br/>
+          Read route.ts file · Regex detect operations · Get runtime from SQLite logs · detectBottleneck() · analyzeRootCause() · generateDeveloperRecommendation()</span>
+        </li>
+        <li>
+          <span class="step-num yellow">2</span>
+          <span>Verify <b>source file found</b> — throw if not found</span>
+        </li>
+        <li>
+          <span class="step-num orange">3</span>
+          <span><b>createSourceAnalysisTask()</b> → POST to Manus AI<br/>
+          Sends: runtime, bottleneck, rootCause, recommendation, annotated source code → gets taskId</span>
+        </li>
+        <li>
+          <span class="step-num purple">4</span>
+          <span><b>addInvestigation()</b> → investigations.json<br/>
+          status: "processing", taskId saved, sourceAnalysis saved</span>
+        </li>
+        <li>
+          <span class="step-num blue">5</span>
+          <span><b>upsertIssue()</b> → issues.json<br/>
+          Fingerprint match → occurrenceCount++ / No match → new issue (status: "open")</span>
+        </li>
+      </ul>
+    </div>
+  </div>
+
+  <!-- Split to: Analyzers + Manus -->
+  <div style="display:flex;justify-content:center;gap:200px;">
+    <div class="arrow-down yellow"></div>
+    <div class="arrow-down orange"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ROW 5 — ANALYZERS + MANUS AI -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="col-group" style="gap:60px;align-items:flex-start;">
+
+    <!-- Analyzers column -->
+    <div style="display:flex;flex-direction:column;gap:12px;">
+      <div class="section-wrap"><span class="section-label" style="background:#1a1a00;color:#d29922;">Source Analysis Chain</span></div>
+
+      <div class="node node-analyzer" style="min-width:260px;">
+        <div class="node-title">source-analyzer.ts</div>
+        <div class="node-name">analyzeSource()</div>
+        <div class="node-desc">
+          Regex scans route.ts for:<br/>
+          request.json · fetch() · .patch()<br/>
+          .commit() · .create() · .delete()<br/>
+          → SourceOperation[] with line numbers
+        </div>
+      </div>
+
+      <div class="arrow-down yellow"></div>
+
+      <div class="node node-analyzer" style="min-width:260px;">
+        <div class="node-title">bottleneck-analyzer.ts</div>
+        <div class="node-name">detectBottleneck()</div>
+        <div class="node-desc">
+          Finds slowest operation<br/>
+          e.g. <code style="color:#d29922">.commit() → 3100ms (90%)</code>
+        </div>
+      </div>
+
+      <div class="arrow-down yellow"></div>
+
+      <div class="node node-analyzer" style="min-width:260px;">
+        <div class="node-title">developer-recommendation-analyzer.ts</div>
+        <div class="node-name">generateDeveloperRecommendation()</div>
+        <div class="node-desc">
+          Category → priority + fix text<br/>
+          database-op / external-api /<br/>
+          request-processing / response-processing
+        </div>
+      </div>
+    </div>
+
+    <!-- Manus AI column -->
+    <div style="display:flex;flex-direction:column;align-items:center;gap:12px;">
+      <div class="section-wrap"><span class="section-label" style="background:#2d1b00;color:#f0883e;">Manus AI</span></div>
+
+      <div class="node node-manus" style="min-width:280px;">
+        <div class="node-title">agent/ai/source-analysis-agent.ts</div>
+        <div class="node-name">createSourceAnalysisTask()</div>
+        <div class="node-desc">
+          POST api.manus.ai/v2/task.create<br/>
+          agent_profile: "lite"<br/>
+          hide_in_task_list: true<br/>
+          share_visibility: "private"<br/>
+          structured_output_schema enforced<br/><br/>
+          <b>Prompt includes:</b><br/>
+          runtime · bottleneck · rootCause<br/>
+          recommendation · source code snippet
+        </div>
+        <span class="badge badge-ai">→ returns taskId</span>
+      </div>
+
+      <div class="arrow-down orange"></div>
+
+      <div class="node node-manus" style="min-width:280px;">
+        <div class="node-title">Manus AI Response</div>
+        <div class="node-name">SourceAnalysisDiagnosis</div>
+        <div class="node-desc">
+          <b>rootCause:</b> "Sanity .commit() blocks 3100ms..."<br/>
+          <b>evidence:</b> "90% of request time in commit..."<br/>
+          <b>source:</b> "Line 34: await transaction.commit()"<br/>
+          <b>recommendation:</b> "Wrap in timeout + retry..."<br/>
+          <b>assumptions:</b> "Sanity on remote network..."
+        </div>
+        <span class="badge badge-ai">Polled via GET investigate/[taskId]</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Arrows down to storage -->
+  <div style="display:flex;justify-content:center;gap:220px;margin-top:8px;">
+    <div style="width:40px;"></div>
+    <div class="arrow-down orange"></div>
+  </div>
+
+  <!-- ══════════════════════════════════════════════ -->
+  <!-- ROW 6 — PERSISTENT STORAGE -->
+  <!-- ══════════════════════════════════════════════ -->
+  <div class="section-wrap"><span class="section-label" style="background:#1a1a2e;color:#a371f7;">⑥ Persistent Storage</span></div>
+  <div class="col-group" style="gap:40px;justify-content:center;">
+
+    <div class="node node-json" style="min-width:260px;">
+      <div class="node-title">investigation-store.ts</div>
+      <div class="node-name">agent/data/investigations.json</div>
+      <div class="node-desc">
+        Max <b>100</b> entries<br/>
+        status: processing → completed<br/>
+        Updated by GET investigate/[taskId]<br/>
+        Stores full sourceAnalysis + AI result
+      </div>
+      <span class="badge badge-json">JSON file</span>
+    </div>
+
+    <div class="node node-issue" style="min-width:260px;">
+      <div class="node-title">issue-store.ts</div>
+      <div class="node-name">agent/data/issues.json</div>
+      <div class="node-desc">
+        Max <b>500</b> entries<br/>
+        Deduplicated by fingerprint:<br/>
+        <code style="color:#58a6ff">"apipath::bottleneckname"</code><br/>
+        occurrenceCount++ on each detection<br/>
+        status: open / investigating / resolved
+      </div>
+      <span class="badge badge-json">JSON file</span>
+    </div>
+
+  </div>
+
+</div><!-- /diagram -->
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- ENDPOINTS SECTION -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<hr class="divider" />
+<h2>All 16 API Endpoints</h2>
+
+<div class="endpoints-grid">
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/logs</div>
+    <div class="ep-desc">All raw request logs from SQLite. Debug &amp; dashboard data source.</div>
+  </div>
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/stats</div>
+    <div class="ep-desc">Aggregated health summary per route+method. Main dashboard overview.</div>
+  </div>
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/analyze?path=…</div>
+    <div class="ep-desc">Deep health analysis for one specific API. Full issue breakdown.</div>
+  </div>
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/source-scan?path=…</div>
+    <div class="ep-desc">Returns raw source code of a route handler file. Route resolution debug.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#d29922;">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/source-analysis?path=…</div>
+    <div class="ep-desc">Full source + runtime analysis. Bottleneck, root cause, recommendation, annotated code. Most powerful read endpoint.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#f0883e;">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/health-ai</div>
+    <div class="ep-desc">Start Manus AI health diagnosis for first warning/critical API. Returns taskId to poll.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#f0883e;">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/health-ai/[taskId]</div>
+    <div class="ep-desc">Poll Manus for health diagnosis result. Call until status: "completed".</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#f0883e;">
+    <span class="ep-method ep-post">POST</span>
+    <div class="ep-path">/api/agent/source-ai</div>
+    <div class="ep-desc">Manually submit source evidence to Manus AI. Used internally by investigation-service.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#f0883e;">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/source-ai/[taskId]</div>
+    <div class="ep-desc">Poll Manus for source analysis diagnosis. Returns full 5-field AI result.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#bc8cff;">
+    <span class="ep-method ep-post">POST</span>
+    <div class="ep-path">/api/agent/investigate</div>
+    <div class="ep-desc">Kick off full investigation: source analysis → Manus AI → save investigation + issue. Main action endpoint.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#bc8cff;">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/investigate/[taskId]</div>
+    <div class="ep-desc">Poll Manus + auto-update investigation record on completion. processing → completed.</div>
+  </div>
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/investigations</div>
+    <div class="ep-desc">All saved investigation history. Audit trail.</div>
+  </div>
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/investigations/[id]</div>
+    <div class="ep-desc">Single investigation detail by UUID.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#58a6ff;">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/issues</div>
+    <div class="ep-desc">All deduplicated issues with summary: total, open, investigating, resolved, recurring.</div>
+  </div>
+
+  <div class="endpoint-card" style="border-color:#58a6ff;">
+    <span class="ep-method ep-patch">PATCH</span>
+    <div class="ep-path">/api/agent/issues/[id]</div>
+    <div class="ep-desc">Update issue status: open → investigating → resolved. Phase 6 lifecycle hook.</div>
+  </div>
+
+  <div class="endpoint-card">
+    <span class="ep-method ep-get">GET</span>
+    <div class="ep-path">/api/agent/test-request</div>
+    <div class="ep-desc">Monitored test endpoint. Generates real traffic to verify the full pipeline.</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- PENDING PHASES -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<hr class="divider" />
+<h2>Pending Phases (6–9)</h2>
+
+<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:16px;max-width:1260px;margin:0 auto;">
+
+  <div style="background:#161b22;border:1px solid #f78166;border-radius:10px;padding:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span class="phase-label pending-label">Phase 6</span>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:#f0f6fc;margin-bottom:8px;">Automatic Issue Lifecycle</div>
+    <ul style="font-size:11px;color:#8b949e;padding-left:14px;line-height:1.8;">
+      <li>Auto-set "investigating" when investigation starts</li>
+      <li>Auto-reopen "resolved" on re-detection</li>
+      <li>Scheduled resolved-state verification</li>
+      <li>Batch status transitions</li>
+    </ul>
+    <div style="margin-top:10px;font-size:10px;color:#f78166;">📍 Add to: investigation-service.ts + issue-store.ts</div>
+  </div>
+
+  <div style="background:#161b22;border:1px solid #f78166;border-radius:10px;padding:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span class="phase-label pending-label">Phase 7</span>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:#f0f6fc;margin-bottom:8px;">Reliable Monitoring & Alerting</div>
+    <ul style="font-size:11px;color:#8b949e;padding-left:14px;line-height:1.8;">
+      <li>Webhook / Slack / email alerting</li>
+      <li>Background polling for pending investigations</li>
+      <li>Retry logic on Manus API failures</li>
+      <li>Rate limiting on investigation creation</li>
+    </ul>
+    <div style="margin-top:10px;font-size:10px;color:#f78166;">📍 New: agent/alerting/ folder</div>
+  </div>
+
+  <div style="background:#161b22;border:1px solid #f78166;border-radius:10px;padding:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span class="phase-label pending-label">Phase 8</span>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:#f0f6fc;margin-bottom:8px;">Safe Remediation</div>
+    <ul style="font-size:11px;color:#8b949e;padding-left:14px;line-height:1.8;">
+      <li>Apply code suggestions from AI diagnosis</li>
+      <li>Dry-run mode before applying fixes</li>
+      <li>Rollback mechanism</li>
+      <li>POST /api/agent/remediate/[issueId]</li>
+    </ul>
+    <div style="margin-top:10px;font-size:10px;color:#f78166;">📍 New: agent/remediation/ folder</div>
+  </div>
+
+  <div style="background:#161b22;border:1px solid #f78166;border-radius:10px;padding:16px;">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+      <span class="phase-label pending-label">Phase 9</span>
+    </div>
+    <div style="font-size:13px;font-weight:700;color:#f0f6fc;margin-bottom:8px;">Testing & Production Readiness</div>
+    <ul style="font-size:11px;color:#8b949e;padding-left:14px;line-height:1.8;">
+      <li>Unit tests: health-analyzer, bottleneck-analyzer, route-matcher</li>
+      <li>Fill empty: project-scanner.ts, request-tracker.ts</li>
+      <li>Enable middleware (11proxy.ts)</li>
+      <li>Circuit breaker for Manus failures</li>
+    </ul>
+    <div style="margin-top:10px;font-size:10px;color:#f78166;">📍 Add: tests/ folder + fix dead files</div>
+  </div>
+
+</div>
+
+<!-- ══════════════════════════════════════════════════════════════ -->
+<!-- EXAMPLE WALKTHROUGH -->
+<!-- ══════════════════════════════════════════════════════════════ -->
+<hr class="divider" />
+<h2>Example: /api/update-post fails 9 times</h2>
+
+<div style="max-width:1260px;margin:0 auto;display:flex;flex-direction:column;gap:8px;">
+
+  <div style="display:flex;align-items:center;gap:12px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;">
+    <span style="background:#1f3d7a;color:#388bfd;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">1</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">POST /api/update-post is called 12 times. 9 return 500.</div>
+      <div style="font-size:11px;color:#8b949e;">withApiMonitoring() logs all 12 to SQLite. Each log includes .commit() timing (3100ms avg).</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;">
+    <span style="background:#2d2000;color:#d29922;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">2</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">automatic-investigator.ts fires (non-blocking) after each request.</div>
+      <div style="font-size:11px;color:#8b949e;">After request #3: 3 calls ✓, no cooldown ✓, server error rate = 66% ✓, server errors = 2 ✓ → TRIGGER A fires.</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;">
+    <span style="background:#2d1b00;color:#f0883e;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">3</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">investigation-service.ts runs the full pipeline.</div>
+      <div style="font-size:11px;color:#8b949e;">Reads app/api/update-post/route.ts → detects .commit() on line 34 → bottleneck = .commit() 90% → POSTs to Manus AI.</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;">
+    <span style="background:#1a1a2e;color:#a371f7;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">4</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">Saved to files immediately.</div>
+      <div style="font-size:11px;color:#8b949e;">investigations.json: { id: "uuid-001", status: "processing", taskId: "manus_xyz" } · issues.json: { id: "issue-001", title: "Slow operation: .commit()", status: "open", occurrenceCount: 1 }</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;">
+    <span style="background:#1f3d7a;color:#388bfd;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">5</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">Dashboard polls GET /api/agent/investigate/manus_xyz.</div>
+      <div style="font-size:11px;color:#8b949e;">Returns status: "completed" with AI diagnosis. Investigation record auto-updated to "completed". Full rootCause + recommendation available.</div>
+    </div>
+  </div>
+
+  <div style="display:flex;align-items:center;gap:12px;background:#161b22;border:1px solid #21262d;border-radius:8px;padding:12px 16px;">
+    <span style="background:#0d4429;color:#3fb950;width:28px;height:28px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0;">6</span>
+    <div>
+      <div style="font-size:12px;font-weight:600;color:#e6edf3;">Developer resolves the issue via PATCH /api/agent/issues/issue-001.</div>
+      <div style="font-size:11px;color:#8b949e;">Body: { "status": "resolved" }. If the same problem recurs → occurrenceCount increments, reopenedCount++ → issue appears again in dashboard.</div>
+    </div>
+  </div>
+
+</div>
+
+<div style="text-align:center;margin-top:60px;font-size:11px;color:#30363d;">
+  Generated from blog-frontend agent system · Phases 1–5 complete · Phases 6–9 pending
+</div>
+
+</body>
+</html>

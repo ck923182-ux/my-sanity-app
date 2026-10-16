@@ -8,7 +8,7 @@ import {
   measureOperation,
   type OperationTiming,
 } from "./operation-monitor"
-
+import { checkApiRecovery } from "../recovery-service"
 type ApiRouteHandler = (
   request: Request,
   context?: unknown,
@@ -144,6 +144,7 @@ export async function monitorApi<T extends Response>(
 
     console.log("API MONITOR LOG:", log)
     addRequestLog(log)
+    checkApiRecovery(log.path)
 
     void triggerAutomaticInvestigation(
       log.path,
@@ -174,6 +175,7 @@ export async function monitorApi<T extends Response>(
 
     console.log("API MONITOR ERROR:", log)
     addRequestLog(log)
+    checkApiRecovery(log.path)
 
     void triggerAutomaticInvestigation(
       log.path,
