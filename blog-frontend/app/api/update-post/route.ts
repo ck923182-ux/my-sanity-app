@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server"
 import { client } from "@/lib/sanity"
 import { monitorApi } from "@/agent/runtime/api-monitor"
@@ -5,17 +6,30 @@ import { monitorApi } from "@/agent/runtime/api-monitor"
 export async function POST(request: Request) {
   return monitorApi(request, async (operations) => {
     try {
+      const body = await request.json()
+
+      const id =
+        typeof body?.id === "string" ? body.id.trim() : ""
+
+      const title =
+        typeof body?.title === "string" ? body.title.trim() : ""
+
+      if (!id || !title) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Both id and title are required",
+          },
+          { status: 400 }
+        )
+      }
+
       const result = await operations.measure(
         "sanity.patch.commit",
         async () => {
           return await client
-            .patch(
-              "bd73e4b0-ed73-4997-b447-df0f4a391163"
-            )
-            .set({
-              title:
-                "Complete React Tutorial for Beginners",
-            })
+            .patch(id)
+            .set({ title })
             .commit()
         }
       )
@@ -26,16 +40,14 @@ export async function POST(request: Request) {
         data: result,
       })
     } catch (error) {
-      console.error(error)
+      console.error("Failed to update post:", error)
 
       return NextResponse.json(
         {
           success: false,
           message: "Failed to update post",
         },
-        {
-          status: 500,
-        }
+        { status: 500 }
       )
     }
   })

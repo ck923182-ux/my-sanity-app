@@ -1,7 +1,6 @@
-
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { StatCard } from "@/app/components/agent/StatCard";
 import InvestigationHistory from "@/app/components/agent/InvestigationHistory";
 
@@ -127,6 +126,11 @@ export default function AgentDashboard() {
   const [logs, setLogs] = useState<LogsResponse | null>(null);
   const [issues, setIssues] = useState<IssuesResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [dashboardError, setDashboardError] = useState("");
+  const [refreshing, setRefreshing] = useState(false);
+  const [lastUpdated, setLastUpdated] = useState<Date | null>(null);
+
+  const refreshInProgress = useRef(false);
 
   const [investigationPath, setInvestigationPath] =
     useState("/api/update-post");
@@ -141,7 +145,17 @@ export default function AgentDashboard() {
   >(null);
 
   const loadDashboard = useCallback(async () => {
+    // Avoid overlapping requests when the automatic refresh runs.
+    if (refreshInProgress.current) {
+      return;
+    }
+
+    refreshInProgress.current = true;
+    setRefreshing(true);
+
     try {
+      setDashboardError("");
+
       const [statsResponse, logsResponse, issuesResponse] = await Promise.all([
         fetch("/api/agent/stats", { cache: "no-store" }),
         fetch("/api/agent/logs", { cache: "no-store" }),
@@ -149,36 +163,53 @@ export default function AgentDashboard() {
       ]);
 
       if (!statsResponse.ok || !logsResponse.ok) {
-        throw new Error("Failed to load agent data");
+        throw new Error(
+          `Failed to load agent data (stats: ${statsResponse.status}, logs: ${logsResponse.status}).`,
+        );
       }
 
       const [statsData, logsData] = await Promise.all([
-        statsResponse.json(),
-        logsResponse.json(),
+        statsResponse.json() as Promise<StatsResponse>,
+        logsResponse.json() as Promise<LogsResponse>,
       ]);
 
       setStats(statsData);
       setLogs(logsData);
+      setLastUpdated(new Date());
 
-      // Issue history is optional; its failure won't break the dashboard.
+      // Issue history is optional. Clear stale data if its request fails.
       if (issuesResponse.ok) {
         const issuesData = (await issuesResponse.json()) as IssuesResponse;
 
         if (issuesData.success) {
           setIssues(issuesData);
+        } else {
+          setIssues(null);
         }
+      } else {
+        setIssues(null);
       }
     } catch (error) {
       console.error("Agent dashboard error:", error);
+
+      setDashboardError(
+        error instanceof Error
+          ? error.message
+          : "Unable to load dashboard data.",
+      );
     } finally {
       setLoading(false);
+      setRefreshing(false);
+      refreshInProgress.current = false;
     }
   }, []);
 
   useEffect(() => {
-    loadDashboard();
+    void loadDashboard();
 
-    const interval = setInterval(loadDashboard, 5000);
+    const interval = setInterval(() => {
+      void loadDashboard();
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [loadDashboard]);
@@ -205,10 +236,20 @@ export default function AgentDashboard() {
         body: JSON.stringify({ path }),
       });
 
-      const data = (await response.json()) as InvestigationResponse;
+      let data: InvestigationResponse;
+
+      try {
+        data = (await response.json()) as InvestigationResponse;
+      } catch {
+        throw new Error(
+          "The investigation endpoint returned an invalid response.",
+        );
+      }
 
       if (!response.ok || !data.success) {
-        throw new Error(data.message ?? "Failed to start investigation.");
+        throw new Error(
+          data.message ?? `Failed to start investigation (${response.status}).`,
+        );
       }
 
       setInvestigation(data);
@@ -216,7 +257,6 @@ export default function AgentDashboard() {
       const taskId = data.ai?.taskId;
 
       if (!taskId) {
-        setInvestigating(false);
         return;
       }
 
@@ -225,22 +265,40 @@ export default function AgentDashboard() {
       for (let attempt = 0; attempt < 20; attempt++) {
         await new Promise((resolve) => setTimeout(resolve, 2000));
 
-        const aiResponse = await fetch(`/api/agent/investigate/${taskId}`, {
-          cache: "no-store",
-        });
+        const aiResponse = await fetch(
+          `/api/agent/investigate/${encodeURIComponent(taskId)}`,
+          { cache: "no-store" },
+        );
 
-        const aiData = (await aiResponse.json()) as InvestigationAiResponse;
+        let aiData: InvestigationAiResponse;
+
+        try {
+          aiData = (await aiResponse.json()) as InvestigationAiResponse;
+        } catch {
+          throw new Error("The AI diagnosis endpoint returned invalid JSON.");
+        }
 
         if (!aiResponse.ok || !aiData.success) {
           throw new Error(
-            aiData.message ?? "Failed to retrieve AI diagnosis.",
+            aiData.message ??
+              `AI diagnosis request failed (${aiResponse.status}).`,
           );
         }
 
-        if (aiData.status === "completed" && aiData.ai) {
+        if (aiData.status === "completed") {
+          if (!aiData.ai) {
+            throw new Error(
+              "AI diagnosis completed, but no diagnosis details were returned.",
+            );
+          }
+
           setAiDiagnosis(aiData.ai);
           completed = true;
           break;
+        }
+
+        if (aiData.status !== "processing") {
+          throw new Error("The AI diagnosis returned an unexpected status.");
         }
       }
 
@@ -285,13 +343,25 @@ export default function AgentDashboard() {
 
   const errorCalls = apiStats.reduce((total, api) => total + api.errorCalls, 0);
 
-  const averageDuration =
-    apiStats.length > 0
-      ? Math.round(
-          apiStats.reduce((total, api) => total + api.averageDuration, 0) /
-            apiStats.length,
-        )
-      : 0;
+  // Request-weighted average; assumes each endpoint's averageDuration
+  // covers the same requests represented by its totalCalls.
+  const averageDuration = (() => {
+    const totalApiCalls = apiStats.reduce(
+      (total, api) => total + api.totalCalls,
+      0,
+    );
+
+    if (totalApiCalls === 0) {
+      return 0;
+    }
+
+    const totalResponseTime = apiStats.reduce(
+      (total, api) => total + api.averageDuration * api.totalCalls,
+      0,
+    );
+
+    return Math.round(totalResponseTime / totalApiCalls);
+  })();
 
   if (loading && !stats) {
     return (
@@ -300,6 +370,15 @@ export default function AgentDashboard() {
           <div className="h-7 w-48 animate-pulse rounded bg-slate-200" />
           <div className="mt-2 h-4 w-72 animate-pulse rounded bg-slate-200" />
         </div>
+
+        {dashboardError && (
+          <div
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+          >
+            {dashboardError}
+          </div>
+        )}
 
         <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[1, 2, 3, 4].map((item) => (
@@ -315,6 +394,23 @@ export default function AgentDashboard() {
 
   return (
     <div className="space-y-8">
+      {dashboardError && (
+        <div
+          role="alert"
+          className="flex flex-col gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 sm:flex-row sm:items-center sm:justify-between"
+        >
+          <p className="text-sm text-red-700">{dashboardError}</p>
+
+          <button
+            type="button"
+            onClick={() => void loadDashboard()}
+            className="self-start rounded-md border border-red-200 bg-white px-3 py-1.5 text-sm font-medium text-red-700 hover:bg-red-100 sm:self-auto"
+          >
+            Retry
+          </button>
+        </div>
+      )}
+
       {/* Page heading */}
       <div>
         <h2 className="text-2xl font-semibold tracking-tight text-slate-900">
@@ -325,9 +421,17 @@ export default function AgentDashboard() {
           Monitor API performance, errors, duplicate requests and AI
           diagnostics.
         </p>
+
+        <p className="mt-2 text-xs text-slate-500" role="status">
+          {refreshing
+            ? "Refreshing dashboard..."
+            : lastUpdated
+              ? `Last updated: ${lastUpdated.toLocaleTimeString()}`
+              : "Waiting for dashboard data..."}
+        </p>
       </div>
 
-      {/* Stats */}
+      {/* Overview statistics */}
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           label="Total API Calls"
@@ -353,7 +457,7 @@ export default function AgentDashboard() {
         <StatCard
           label="Average Response"
           value={`${averageDuration} ms`}
-          description="Average across monitored APIs"
+          description="Request-weighted average across monitored APIs"
           icon="◷"
         />
       </div>
@@ -567,33 +671,45 @@ export default function AgentDashboard() {
         </div>
 
         <div className="space-y-6 p-5">
-          <div className="flex flex-col gap-3 sm:flex-row">
+          <form
+            className="flex flex-col gap-3 sm:flex-row"
+            onSubmit={(event) => {
+              event.preventDefault();
+              void runInvestigation();
+            }}
+          >
             <input
               type="text"
               value={investigationPath}
               onChange={(event) => setInvestigationPath(event.target.value)}
               placeholder="/api/update-post"
+              aria-label="API path to investigate"
               className="min-w-0 flex-1 rounded-lg border border-slate-300 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-slate-500 focus:ring-2 focus:ring-slate-200"
             />
 
             <button
-              type="button"
-              onClick={runInvestigation}
+              type="submit"
               disabled={investigating}
               className="rounded-lg bg-slate-900 px-5 py-2.5 text-sm font-medium text-white transition hover:bg-slate-700 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {investigating ? "Investigating..." : "Investigate API"}
             </button>
-          </div>
+          </form>
 
           {investigationError && (
-            <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div
+              role="alert"
+              className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
               {investigationError}
             </div>
           )}
 
           {investigating && (
-            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4">
+            <div
+              role="status"
+              className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-4"
+            >
               <div className="flex items-center gap-3">
                 <div className="h-4 w-4 animate-spin rounded-full border-2 border-slate-300 border-t-slate-900" />
                 <div>
@@ -822,7 +938,7 @@ export default function AgentDashboard() {
         )}
       </section>
 
-      {/* Recent requests */}
+      {/* Recent Requests */}
       <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
         <div className="flex items-center justify-between border-b border-slate-200 px-5 py-4">
           <div>
@@ -957,12 +1073,14 @@ function HealthBadge({ health }: { health: string }) {
 }
 
 function formatTime(timestamp: string) {
-  try {
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
+  const date = new Date(timestamp);
+
+  if (Number.isNaN(date.getTime())) {
     return "-";
   }
+
+  return date.toLocaleTimeString([], {
+    hour: "2-digit",
+    minute: "2-digit",
+  });
 }
