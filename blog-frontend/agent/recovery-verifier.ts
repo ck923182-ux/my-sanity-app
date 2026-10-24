@@ -52,15 +52,19 @@ export function evaluateRecoveryLogs(
     ) / totalRequests,
   );
 
-  if (serverErrors > 0) {
-    return {
-      recovered: false,
-      reason: `${serverErrors} server error(s) occurred in the latest ${MIN_RECOVERY_REQUESTS} unique requests.`,
-      totalRequests,
-      serverErrors,
-      averageDuration,
-    };
-  }
+ const unsuccessfulResponses = recoveryWindow.filter(
+  (log) => log.status < 200 || log.status >= 300,
+).length;
+
+if (unsuccessfulResponses > 0) {
+  return {
+    recovered: false,
+    reason: `${unsuccessfulResponses} non-2xx response(s) occurred in the latest ${MIN_RECOVERY_REQUESTS} unique requests.`,
+    totalRequests,
+    serverErrors,
+    averageDuration,
+  };
+}
 
   if (averageDuration >= MAX_RECOVERY_AVERAGE_DURATION_MS) {
     return {

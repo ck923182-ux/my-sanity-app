@@ -1,6 +1,6 @@
 import { getRequestLogs } from "@/agent/store";
 import { resolveApiRoute } from "@/agent/runtime/route-matcher";
-
+import type { ApiRequestLog } from "@/agent/types";
 export type HealthStatus = "healthy" | "warning" | "critical";
 
 export interface HealthIssue {
@@ -137,6 +137,115 @@ export function analyzeApiHealth(
     maxDuration: Math.round(maxDuration),
     errorRate: Number(errorRate.toFixed(1)),
     duplicateCalls,
+    issues,
+  };
+}
+
+const AUTOMATION_WINDOW_SIZE = 10;
+
+export function analyzeRecentApiHealth(
+  path: string,
+  method?: string,
+): ApiHealthResult | null {
+  const normalizedPath = resolveApiRoute(path) ?? path;
+
+  const logs = getRequestLogs()
+    .filter((log) => {
+      const normalizedLogPath =
+        resolveApiRoute(log.path) ?? log.path;
+
+      if (normalizedLogPath !== normalizedPath) return false;
+      if (method && log.method !== method) return false;
+
+      return log.isDuplicate !== true;
+    })
+    .sort((a, b) => b.timestamp - a.timestamp)
+    .slice(0, AUTOMATION_WINDOW_SIZE);
+
+  if (logs.length === 0) return null;
+
+  const totalCalls = logs.length;
+
+  const successCalls = logs.filter(
+    (log) => log.status >= 200 && log.status < 400,
+  ).length;
+
+  const errorCalls = logs.filter(
+    (log) => log.status >= 400,
+  ).length;
+
+  const serverErrorCalls = logs.filter(
+    (log) => log.status >= 500 && log.status < 600,
+  ).length;
+
+  const clientErrorCalls = logs.filter(
+    (log) => log.status >= 400 && log.status < 500,
+  ).length;
+
+  const durations = logs.map((log) => log.duration);
+
+  const averageDuration = Math.round(
+    durations.reduce((sum, duration) => sum + duration, 0) /
+      durations.length,
+  );
+
+  const maxDuration = Math.max(...durations);
+
+  const errorRate = Number(
+    ((serverErrorCalls / totalCalls) * 100).toFixed(1),
+  );
+
+  const issues: HealthIssue[] = [];
+
+  if (errorRate >= 50) {
+    issues.push({
+      type: "high-server-error-rate",
+      message: `API server error rate is ${errorRate}%.`,
+      severity: "high",
+    });
+  } else if (errorRate >= 20) {
+    issues.push({
+      type: "elevated-server-error-rate",
+      message: `API server error rate is ${errorRate}%.`,
+      severity: "medium",
+    });
+  }
+
+  if (averageDuration >= 2000) {
+    issues.push({
+      type: "very-slow-api",
+      message: `Average response time is ${averageDuration}ms.`,
+      severity: "high",
+    });
+  } else if (averageDuration >= 1000) {
+    issues.push({
+      type: "slow-api",
+      message: `Average response time is ${averageDuration}ms.`,
+      severity: "medium",
+    });
+  }
+
+  let health: HealthStatus = "healthy";
+
+  if (issues.some((issue) => issue.severity === "high")) {
+    health = "critical";
+  } else if (issues.some((issue) => issue.severity === "medium")) {
+    health = "warning";
+  }
+
+  return {
+    path: normalizedPath,
+    method: method ?? logs[0].method,
+    health,
+    totalCalls,
+    successCalls,
+    errorCalls,
+    serverErrorCalls,
+    clientErrorCalls,
+    averageDuration,
+    maxDuration,
+    errorRate,
+    duplicateCalls: 0,
     issues,
   };
 }

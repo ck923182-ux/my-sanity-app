@@ -1,250 +1,159 @@
-import fs from "fs"
-import path from "path"
 
-import type { SourceAnalysisDiagnosis } from "@/agent/ai/source-analysis-agent"
-
-console.log(
-  "INVESTIGATION STORE LOADED:",
-  __filename
-)
+import type { SourceAnalysisDiagnosis } from "@/agent/ai/source-analysis-agent";
+import { db } from "@/agent/runtime/database";
 
 export type InvestigationHistoryRecord = {
-  id: string
-
-  apiPath: string
-
-  createdAt: number
-
-  status: "processing" | "completed" | "failed"
-
-  taskId?: string
-
+  id: string;
+  apiPath: string;
+  createdAt: number;
+  status: "processing" | "completed" | "failed";
+  taskId?: string;
   sourceAnalysis?: {
-    filePath?: string
-
-    runtime?: {
-      duration: number
-      status: number
-    } | null
-
+    filePath?: string;
+    runtime?: { duration: number; status: number } | null;
     bottleneck?: {
-      name: string
-      duration: number
-      percentage: number
-    } | null
-
+      name: string;
+      duration: number;
+      percentage: number;
+    } | null;
     rootCause?: {
-      likelyCause: string
-      explanation: string
-      duration: number
-      bottleneckDuration: number
-      sourceLines: number[]
-    } | null
-
+      likelyCause: string;
+      explanation: string;
+      duration: number;
+      bottleneckDuration: number;
+      sourceLines: number[];
+    } | null;
     developerRecommendation?: {
-      priority: "high" | "medium" | "low"
-      title: string
-      recommendation: string
-      reason: string
-      sourceLines: number[]
-    } | null
-
+      priority: "high" | "medium" | "low";
+      title: string;
+      recommendation: string;
+      reason: string;
+      sourceLines: number[];
+    } | null;
     sourceContext?: {
-      startLine: number
-      endLine: number
-      code: string
-    } | null
-  }
+      startLine: number;
+      endLine: number;
+      code: string;
+    } | null;
+  };
+  ai?: SourceAnalysisDiagnosis | null;
+  error?: string;
+};
 
-  ai?: SourceAnalysisDiagnosis | null
+const MAX_INVESTIGATIONS = 100;
 
-  error?: string
+type InvestigationRow = {
+  id: string;
+  record_json: string;
+};
+
+function readInvestigationRow(
+  row: InvestigationRow,
+): InvestigationHistoryRecord {
+  return JSON.parse(row.record_json) as InvestigationHistoryRecord;
 }
 
-const DATA_FILE = path.resolve(
-  process.cwd(),
-  "agent",
-  "data",
-  "investigations.json"
-)
-
-const MAX_INVESTIGATIONS = 100
-
-function ensureDataFile() {
-  const directory =
-    path.dirname(DATA_FILE)
-
-  if (!fs.existsSync(directory)) {
-    fs.mkdirSync(directory, {
-      recursive: true,
-    })
-  }
-
-  if (!fs.existsSync(DATA_FILE)) {
-    fs.writeFileSync(
-      DATA_FILE,
-      "[]",
-      "utf8"
+function readAllInvestigations(): InvestigationHistoryRecord[] {
+  const rows = db
+    .prepare(
+      "SELECT id, record_json FROM agent_investigations",
     )
-  }
+    .all() as InvestigationRow[];
+
+  return rows.map(readInvestigationRow);
 }
 
-function readInvestigations(): InvestigationHistoryRecord[] {
-  ensureDataFile()
-
-  try {
-    const content =
-      fs.readFileSync(
-        DATA_FILE,
-        "utf8"
-      )
-
-    if (!content.trim()) {
-      return []
-    }
-
-    const data =
-      JSON.parse(content)
-
-    if (!Array.isArray(data)) {
-      console.error(
-        "Investigation history file must contain an array."
-      )
-
-      return []
-    }
-
-    return data as InvestigationHistoryRecord[]
-  } catch (error) {
-    console.error(
-      "Failed to read investigation history:",
-      error
+function saveInvestigation(
+  investigation: InvestigationHistoryRecord,
+): void {
+  db.prepare(`
+    INSERT INTO agent_investigations (
+      id,
+      task_id,
+      api_path,
+      status,
+      created_at,
+      record_json
     )
-
-    return []
-  }
-}
-
-function writeInvestigations(
-  investigations: InvestigationHistoryRecord[]
-) {
-  ensureDataFile()
-
-  console.log(
-    "INVESTIGATION DATA FILE:",
-    DATA_FILE
-  )
-
-  console.log(
-    "INVESTIGATION COUNT TO WRITE:",
-    investigations.length
-  )
-
-  fs.writeFileSync(
-    DATA_FILE,
-    JSON.stringify(
-      investigations,
-      null,
-      2
-    ),
-    "utf8"
-  )
-
-  console.log(
-    "INVESTIGATION FILE WRITTEN SUCCESSFULLY"
-  )
+    VALUES (?, ?, ?, ?, ?, ?)
+    ON CONFLICT(id) DO UPDATE SET
+      task_id = excluded.task_id,
+      api_path = excluded.api_path,
+      status = excluded.status,
+      created_at = excluded.created_at,
+      record_json = excluded.record_json
+  `).run(
+    investigation.id,
+    investigation.taskId ?? null,
+    investigation.apiPath,
+    investigation.status,
+    investigation.createdAt,
+    JSON.stringify(investigation),
+  );
 }
 
 export function addInvestigation(
-  investigation: InvestigationHistoryRecord
-) {
-  console.log(
-    "ADDING INVESTIGATION:",
-    investigation.id
-  )
+  investigation: InvestigationHistoryRecord,
+): InvestigationHistoryRecord {
+  return db.transaction(() => {
+    saveInvestigation(investigation);
 
-  const investigations =
-    readInvestigations()
+    db.prepare(`
+      DELETE FROM agent_investigations
+      WHERE id IN (
+        SELECT id
+        FROM agent_investigations
+        ORDER BY created_at DESC, id ASC
+        LIMIT -1 OFFSET ?
+      )
+    `).run(MAX_INVESTIGATIONS);
 
-  console.log(
-    "EXISTING INVESTIGATIONS:",
-    investigations.length
-  )
-
-  investigations.unshift(
-    investigation
-  )
-
-  const limited =
-    investigations.slice(
-      0,
-      MAX_INVESTIGATIONS
-    )
-
-  writeInvestigations(
-    limited
-  )
-
-  console.log(
-    "INVESTIGATION HISTORY SAVED:",
-    investigation.id
-  )
-
-  return investigation
+    return investigation;
+  })();
 }
 
-export function getInvestigations() {
-  return readInvestigations()
+export function getInvestigations(): InvestigationHistoryRecord[] {
+  return readAllInvestigations().sort(
+    (a, b) => b.createdAt - a.createdAt,
+  );
 }
 
 export function getInvestigationById(
-  id: string
-) {
-  return readInvestigations().find(
-    (investigation) =>
-      investigation.id === id
-  )
+  id: string,
+): InvestigationHistoryRecord | undefined {
+  const row = db
+    .prepare(`
+      SELECT id, record_json
+      FROM agent_investigations
+      WHERE id = ?
+    `)
+    .get(id) as InvestigationRow | undefined;
+
+  return row ? readInvestigationRow(row) : undefined;
 }
 
 export function updateInvestigation(
   id: string,
-  updates: Partial<InvestigationHistoryRecord>
-) {
-  const investigations =
-    readInvestigations()
+  updates: Partial<InvestigationHistoryRecord>,
+): InvestigationHistoryRecord | null {
+  return db.transaction(() => {
+    const current = getInvestigationById(id);
 
-  const index =
-    investigations.findIndex(
-      (investigation) =>
-        investigation.id === id
-    )
+    if (!current) {
+      console.error("Investigation not found:", id);
+      return null;
+    }
 
-  if (index === -1) {
-    console.error(
-      "Investigation not found:",
-      id
-    )
+    const updated: InvestigationHistoryRecord = {
+      ...current,
+      ...updates,
+    };
 
-    return null
-  }
-
-  investigations[index] = {
-    ...investigations[index],
-    ...updates,
-  }
-
-  writeInvestigations(
-    investigations
-  )
-
-  console.log(
-    "INVESTIGATION HISTORY UPDATED:",
-    id
-  )
-
-  return investigations[index]
+    saveInvestigation(updated);
+    return updated;
+  })();
 }
 
-export function clearInvestigations() {
-  writeInvestigations([])
+export function clearInvestigations(): void {
+  db.prepare("DELETE FROM agent_investigations").run();
 }

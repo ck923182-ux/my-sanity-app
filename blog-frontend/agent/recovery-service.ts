@@ -1,8 +1,6 @@
-
 import {
   getIssues,
-  getIssueById,
-  resolveIssue,
+  resolveIssueForInvestigation,
 } from "@/agent/issue-store";
 
 import { getInvestigationById } from "@/agent/investigation-store";
@@ -62,24 +60,10 @@ export function checkApiRecovery(apiPath: string): void {
 
     // Re-read the issue before resolving it. A newer investigation
     // or another lifecycle action may have changed its state.
-    const currentIssue = getIssueById(issue.id);
-
-    if (
-      !currentIssue ||
-      currentIssue.status !== "investigating" ||
-      currentIssue.latestInvestigationId !== investigationId
-    ) {
-      console.warn("RECOVERY RESOLUTION SKIPPED:", {
-        issueId: issue.id,
-        investigationId,
-        currentStatus: currentIssue?.status ?? "missing",
-        latestInvestigationId:
-          currentIssue?.latestInvestigationId ?? null,
-      });
-      continue;
-    }
-
-    const resolvedIssue = resolveIssue(currentIssue.id);
+    const resolvedIssue = resolveIssueForInvestigation(
+  issue.id,
+  investigationId,
+);
 
     if (resolvedIssue) {
       console.log("API ISSUE AUTOMATICALLY RESOLVED:", {

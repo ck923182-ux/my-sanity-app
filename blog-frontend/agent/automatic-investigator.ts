@@ -4,7 +4,7 @@ import {
 } from "@/agent/investigation-store";
 
 import {
-  analyzeApiHealth,
+  analyzeRecentApiHealth,
   type ApiHealthResult,
 } from "@/agent/analyzer/health-analyzer";
 
@@ -19,135 +19,92 @@ import {
 import { getRequestLogs } from "@/agent/store";
 import { getIssues } from "@/agent/issue-store";
 
-export type AutomaticInvestigationDecision = {
-  shouldInvestigate: boolean;
-  reason: string;
-};
+import {
+  evaluateAutomaticInvestigation,
+  type AutomaticInvestigationDecision,
+} from "@/agent/automatic-investigation-policy";
+
+import {
+  runAutomaticInvestigation,
+} from "@/agent/automatic-investigation-runner";
+
+export type { AutomaticInvestigationDecision } from
+  "@/agent/automatic-investigation-policy";
 
 const COOLDOWN_MS = 10 * 60 * 1000;
 const MIN_REQUESTS = 3;
-const MIN_SERVER_ERRORS = 2;
-const SERVER_ERROR_RATE_THRESHOLD = 50;
 
 export function shouldAutomaticallyInvestigate(
-  health: ApiHealthResult
+  health: ApiHealthResult,
 ): AutomaticInvestigationDecision {
-  const normalizedHealthPath =
+  const normalizedPath =
     resolveApiRoute(health.path) ?? health.path;
 
-  // Agent APIs must never trigger automatic investigations.
-  if (normalizedHealthPath.startsWith("/api/agent")) {
-    return {
-      shouldInvestigate: false,
-      reason: "Agent API is excluded from automatic investigation.",
-    };
+  // Excluded routes and insufficient traffic need no store reads.
+  if (
+    normalizedPath.startsWith("/api/agent") ||
+    health.totalCalls < MIN_REQUESTS
+  ) {
+    return evaluateAutomaticInvestigation(health);
   }
 
-  // Require enough traffic before evaluating API health.
-  if (health.totalCalls < MIN_REQUESTS) {
-    return {
-      shouldInvestigate: false,
-      reason: `Waiting for at least ${MIN_REQUESTS} requests before investigating.`,
-    };
-  }
-
-  // Prevent duplicate investigations for an issue already
-  // undergoing investigation.
-  const activeIssue = getIssues().find((issue) => {
+  const activeIssue = getIssues().some((issue) => {
     const issuePath =
       resolveApiRoute(issue.apiPath) ?? issue.apiPath;
 
     return (
-      issuePath === normalizedHealthPath &&
+      issuePath === normalizedPath &&
       issue.status === "investigating"
     );
   });
 
-  if (activeIssue) {
-    return {
-      shouldInvestigate: false,
-      reason: "An issue for this API is already under investigation.",
-    };
-  }
-
-  // Respect the existing cooldown.
-  const investigations = getInvestigations();
   const now = Date.now();
 
-  const recentInvestigation = investigations.find(
+  const recentInvestigation = getInvestigations().some(
     (investigation) => {
       const investigationPath =
         resolveApiRoute(investigation.apiPath) ??
         investigation.apiPath;
 
+      const age = now - investigation.createdAt;
+
       return (
-        investigationPath === normalizedHealthPath &&
-        now - investigation.createdAt >= 0 &&
-        now - investigation.createdAt < COOLDOWN_MS
+        investigationPath === normalizedPath &&
+        age >= 0 &&
+        age < COOLDOWN_MS
       );
-    }
+    },
   );
 
-  if (recentInvestigation) {
-    return {
-      shouldInvestigate: false,
-      reason: "A recent investigation already exists for this API.",
-    };
-  }
-
-  // Detect recurring server errors.
-  const hasRecurringServerErrors =
-    health.serverErrorCalls >= MIN_SERVER_ERRORS &&
-    health.errorRate >= SERVER_ERROR_RATE_THRESHOLD;
-
-  // Detect sustained high latency.
-  const hasSustainedLatency =
-    health.averageDuration >= 2000;
-
-  if (hasRecurringServerErrors) {
-    return {
-      shouldInvestigate: true,
-      reason: `Recurring server errors detected: ${health.serverErrorCalls} server errors with a ${health.errorRate}% server-error rate.`,
-    };
-  }
-
-  if (hasSustainedLatency) {
-    return {
-      shouldInvestigate: true,
-      reason: `Sustained high response time detected: ${health.averageDuration}ms average across ${health.totalCalls} requests.`,
-    };
-  }
-
-  return {
-    shouldInvestigate: false,
-    reason:
-      "Insufficient evidence of recurring server errors or sustained high latency.",
-  };
+  return evaluateAutomaticInvestigation(health, {
+    hasActiveIssue: activeIssue,
+    hasRecentInvestigation: recentInvestigation,
+  });
 }
 
 export async function triggerAutomaticInvestigation(
   apiPath: string,
-  requestUrl: string
+  requestUrl: string,
 ): Promise<void> {
   const normalizedPath =
     resolveApiRoute(apiPath) ?? apiPath;
 
-  // Never investigate the agent's own endpoints.
+  // Never automatically investigate the agent's own APIs.
   if (normalizedPath.startsWith("/api/agent")) {
     return;
   }
 
-  // Avoid investigating authentication failures.
   const matchingLogs = getRequestLogs()
     .filter(
       (log) =>
         (resolveApiRoute(log.path) ?? log.path) ===
-        normalizedPath
+        normalizedPath,
     )
     .sort((a, b) => b.timestamp - a.timestamp);
 
   const latestMatchingLog = matchingLogs[0];
 
+  // Preserve the existing authentication-failure safeguard.
   if (
     latestMatchingLog &&
     (latestMatchingLog.status === 401 ||
@@ -161,39 +118,44 @@ export async function triggerAutomaticInvestigation(
     return;
   }
 
-  const health = analyzeApiHealth(normalizedPath);
+  const health = analyzeRecentApiHealth(normalizedPath);
 
   if (!health) {
     return;
   }
 
-  const decision = shouldAutomaticallyInvestigate(health);
-
-  if (!decision.shouldInvestigate) {
-    console.log("AUTOMATIC INVESTIGATION SKIPPED:", {
-      apiPath: normalizedPath,
-      reason: decision.reason,
-    });
-
-    return;
-  }
-
   try {
-    console.log("AUTOMATIC INVESTIGATION STARTED:", {
-      apiPath: normalizedPath,
-      health: health.health,
-      reason: decision.reason,
-    });
-
-    const investigation = await createInvestigation(
+    const result = await runAutomaticInvestigation(
       normalizedPath,
-      requestUrl
+      {
+        getHealth: () => health,
+
+        decide: shouldAutomaticallyInvestigate,
+
+        startInvestigation: async (path) => {
+          console.log("AUTOMATIC INVESTIGATION STARTED:", {
+            apiPath: path,
+            health: health.health,
+          });
+
+          return createInvestigation(path, requestUrl);
+        },
+      },
     );
+
+    if (result.status === "skipped") {
+      console.log("AUTOMATIC INVESTIGATION SKIPPED:", {
+        apiPath: normalizedPath,
+        reason: result.reason,
+      });
+
+      return;
+    }
 
     console.log("AUTOMATIC INVESTIGATION CREATED:", {
       apiPath: normalizedPath,
-      investigationId: investigation.investigationId,
-      taskId: investigation.taskId,
+      investigationId: result.investigation.investigationId,
+      taskId: result.investigation.taskId,
     });
   } catch (error) {
     console.error("AUTOMATIC INVESTIGATION FAILED:", {
