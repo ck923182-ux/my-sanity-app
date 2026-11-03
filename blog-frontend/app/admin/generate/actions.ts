@@ -11,6 +11,7 @@
 // logged-in authors reach this page in the first place.
 
 import { createManusTask, pollManusTask } from "@/lib/manus";
+import { requireAdmin } from "@/auth/guards";
 import {
   generateFormSchema,
   manusPostOutputSchema,
@@ -19,9 +20,15 @@ import {
 import { finalizeGeneratedPost } from "@/lib/finalizeGeneratedPost";
 
 export async function startGeneration(input: unknown) {
+  await requireAdmin();
+
   const parsed = generateFormSchema.safeParse(input);
   if (!parsed.success) {
-    return { ok: false as const, error: "Invalid input", issues: parsed.error.issues };
+    return {
+      ok: false as const,
+      error: "Invalid input",
+      issues: parsed.error.issues,
+    };
   }
 
   try {
@@ -46,8 +53,9 @@ export type GenerationStatus =
 export async function checkGenerationStatus(
   taskId: string,
   categoryId: string,
-  authorId: string
+  authorId: string,
 ): Promise<GenerationStatus> {
+  await requireAdmin();
   try {
     const result = await pollManusTask(taskId);
 
@@ -60,10 +68,18 @@ export async function checkGenerationStatus(
     }
 
     // completed
-    const outcome = await finalizeGeneratedPost(taskId, result.value, categoryId, authorId);
-    if (outcome.status === "already_created") return { ok: true, state: "already_created" };
-    if (outcome.status === "invalid") return { ok: false, error: "AI output failed validation" };
-    if (outcome.status === "save_failed") return { ok: false, error: outcome.message };
+    const outcome = await finalizeGeneratedPost(
+      taskId,
+      result.value,
+      categoryId,
+      authorId,
+    );
+    if (outcome.status === "already_created")
+      return { ok: true, state: "already_created" };
+    if (outcome.status === "invalid")
+      return { ok: false, error: "AI output failed validation" };
+    if (outcome.status === "save_failed")
+      return { ok: false, error: outcome.message };
 
     return {
       ok: true,

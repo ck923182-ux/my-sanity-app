@@ -5,6 +5,8 @@ import { getRequestLogs } from "@/agent/store"
 import { analyzeApiHealth } from "@/agent/analyzer/health-analyzer"
 
 import { createApiHealthTask } from "@/agent/ai/api-health-agent"
+import { authorizeAdminApi } from "@/auth/guards";
+
 
 import {
   getAiDiagnosis,
@@ -14,6 +16,10 @@ import {
 import type { ApiStats } from "@/agent/types"
 
 export async function GET() {
+ const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
+
   try {
     const logs = getRequestLogs()
 

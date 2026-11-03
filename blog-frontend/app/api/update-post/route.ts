@@ -2,8 +2,22 @@
 import { NextResponse } from "next/server"
 import { client } from "@/lib/sanity"
 import { monitorApi } from "@/agent/runtime/api-monitor"
+import { getAdminSession } from "@/auth/guards";
 
 export async function POST(request: Request) {
+
+   const session = await getAdminSession(request.headers);
+
+  if (!session) {
+    return NextResponse.json(
+      {
+        success: false,
+        message: "Unauthorized. Administrator access required.",
+      },
+      { status: 401 }
+    );
+  }
+  
   return monitorApi(request, async (operations) => {
     try {
       const body = await request.json()
