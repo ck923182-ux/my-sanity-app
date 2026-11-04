@@ -1,18 +1,21 @@
+import { NextResponse } from "next/server";
 
-import { NextResponse } from "next/server"
-
-import { getRequestLogs } from "@/agent/store"
-import { analyzeApiHealth } from "@/agent/analyzer/health-analyzer"
-import { resolveApiRoute } from "@/agent/runtime/route-matcher"
+import { getRequestLogs } from "@/agent/store";
+import { analyzeApiHealth } from "@/agent/analyzer/health-analyzer";
+import { resolveApiRoute } from "@/agent/runtime/route-matcher";
+import { authorizeAdminApi } from "@/auth/guards";
 
 export async function GET() {
-  const logs = getRequestLogs()
+  const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
+  const logs = getRequestLogs();
 
   // Group requests by their resolved Next.js route and HTTP method.
   const apiRoutes = Array.from(
     new Map(
       logs.map((log) => {
-        const path = resolveApiRoute(log.path) ?? log.path
+        const path = resolveApiRoute(log.path) ?? log.path;
 
         return [
           `${log.method}:${path}`,
@@ -20,17 +23,17 @@ export async function GET() {
             path,
             method: log.method,
           },
-        ] as const
-      })
-    ).values()
-  )
+        ] as const;
+      }),
+    ).values(),
+  );
 
   const stats = apiRoutes
     .map(({ path, method }) => analyzeApiHealth(path, method))
-    .filter((stat) => stat !== null)
+    .filter((stat) => stat !== null);
 
   return NextResponse.json({
     totalRequests: logs.length,
     stats,
-  })
+  });
 }

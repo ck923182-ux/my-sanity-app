@@ -1,22 +1,20 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
 
-import {
-  getSourceAnalysisDiagnosis,
-} from "@/agent/ai/source-analysis-agent"
+import { getSourceAnalysisDiagnosis } from "@/agent/ai/source-analysis-agent";
+import { authorizeAdminApi } from "@/auth/guards";
 
 type RouteContext = {
   params: Promise<{
-    taskId: string
-  }>
-}
+    taskId: string;
+  }>;
+};
 
-export async function GET(
-  _request: Request,
-  context: RouteContext
-) {
+export async function GET(_request: Request, context: RouteContext) {
+  const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
-    const { taskId } =
-      await context.params
+    const { taskId } = await context.params;
 
     if (!taskId) {
       return NextResponse.json(
@@ -26,14 +24,11 @@ export async function GET(
         },
         {
           status: 400,
-        }
-      )
+        },
+      );
     }
 
-    const diagnosis =
-      await getSourceAnalysisDiagnosis(
-        taskId
-      )
+    const diagnosis = await getSourceAnalysisDiagnosis(taskId);
 
     if (!diagnosis) {
       return NextResponse.json({
@@ -41,7 +36,7 @@ export async function GET(
         taskId,
         status: "processing",
         diagnosis: null,
-      })
+      });
     }
 
     return NextResponse.json({
@@ -49,12 +44,9 @@ export async function GET(
       taskId,
       status: "completed",
       diagnosis,
-    })
+    });
   } catch (error) {
-    console.error(
-      "Source AI polling error:",
-      error
-    )
+    console.error("Source AI polling error:", error);
 
     return NextResponse.json(
       {
@@ -66,7 +58,7 @@ export async function GET(
       },
       {
         status: 500,
-      }
-    )
+      },
+    );
   }
 }

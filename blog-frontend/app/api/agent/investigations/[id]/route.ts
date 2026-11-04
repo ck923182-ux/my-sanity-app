@@ -3,6 +3,8 @@ import { NextResponse } from "next/server"
 import {
   getInvestigationById,
 } from "@/agent/investigation-store"
+import { authorizeAdminApi } from "@/auth/guards";
+
 
 type RouteContext = {
   params: Promise<{
@@ -14,6 +16,9 @@ export async function GET(
   _request: Request,
   context: RouteContext
 ) {
+  const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
     const { id } = await context.params
 

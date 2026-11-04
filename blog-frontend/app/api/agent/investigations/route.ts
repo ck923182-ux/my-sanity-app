@@ -3,8 +3,12 @@ import { NextResponse } from "next/server"
 import {
   getInvestigations,
 } from "@/agent/investigation-store"
+import { authorizeAdminApi } from "@/auth/guards";
 
 export async function GET() {
+    const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
     const investigations =
       getInvestigations()

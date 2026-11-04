@@ -1,4 +1,3 @@
-
 import { NextResponse } from "next/server";
 
 import {
@@ -16,16 +15,18 @@ import {
   updateIssueStatusForInvestigation,
 } from "@/agent/issue-store";
 
+import { authorizeAdminApi } from "@/auth/guards";
+
 type RouteContext = {
   params: Promise<{
     taskId: string;
   }>;
 };
 
-export async function GET(
-  _request: Request,
-  context: RouteContext,
-) {
+export async function GET(_request: Request, context: RouteContext) {
+  const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
     const { taskId } = await context.params;
 
@@ -55,20 +56,14 @@ export async function GET(
 
     // Prevent an older investigation from changing the lifecycle
     // of an issue managed by a newer investigation.
-    const linkedIssue = getIssueByInvestigationId(
-      investigation.id,
-    );
+    const linkedIssue = getIssueByInvestigationId(investigation.id);
 
-    if (
-      linkedIssue &&
-      linkedIssue.latestInvestigationId !== investigation.id
-    ) {
+    if (linkedIssue && linkedIssue.latestInvestigationId !== investigation.id) {
       console.warn("STALE INVESTIGATION POLL:", {
         taskId,
         investigationId: investigation.id,
         issueId: linkedIssue.id,
-        latestInvestigationId:
-          linkedIssue.latestInvestigationId,
+        latestInvestigationId: linkedIssue.latestInvestigationId,
       });
 
       return NextResponse.json({
@@ -82,10 +77,7 @@ export async function GET(
     }
 
     // Do not poll again after a terminal state has been recorded.
-    if (
-      investigation.status === "completed" &&
-      investigation.ai
-    ) {
+    if (investigation.status === "completed" && investigation.ai) {
       return NextResponse.json({
         success: true,
         taskId,
@@ -100,8 +92,7 @@ export async function GET(
         taskId,
         status: "failed",
         ai: null,
-        message:
-          investigation.error ?? "Investigation failed.",
+        message: investigation.error ?? "Investigation failed.",
       });
     }
 
@@ -118,10 +109,7 @@ export async function GET(
 
         // A failed diagnostic task does not mean the API
         // itself has recovered.
-        updateIssueStatusForInvestigation(
-          investigation.id,
-          "open",
-        );
+        updateIssueStatusForInvestigation(investigation.id, "open");
 
         console.error("INVESTIGATION TASK FAILED:", {
           taskId,
@@ -154,21 +142,17 @@ export async function GET(
 
     // Recheck before updating the investigation record because
     // a newer investigation might have started during the await.
-    const latestLinkedIssue = getIssueByInvestigationId(
-      investigation.id,
-    );
+    const latestLinkedIssue = getIssueByInvestigationId(investigation.id);
 
     if (
       latestLinkedIssue &&
-      latestLinkedIssue.latestInvestigationId !==
-        investigation.id
+      latestLinkedIssue.latestInvestigationId !== investigation.id
     ) {
       console.warn("STALE INVESTIGATION RESULT DISCARDED:", {
         taskId,
         investigationId: investigation.id,
         issueId: latestLinkedIssue.id,
-        latestInvestigationId:
-          latestLinkedIssue.latestInvestigationId,
+        latestInvestigationId: latestLinkedIssue.latestInvestigationId,
       });
 
       return NextResponse.json({
@@ -181,21 +165,17 @@ export async function GET(
       });
     }
 
-    const updatedInvestigation = updateInvestigation(
-      investigation.id,
-      {
-        status: "completed",
-        ai: diagnosis,
-        error: undefined,
-      },
-    );
+    const updatedInvestigation = updateInvestigation(investigation.id, {
+      status: "completed",
+      ai: diagnosis,
+      error: undefined,
+    });
 
     if (!updatedInvestigation) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Investigation record could not be updated.",
+          message: "Investigation record could not be updated.",
         },
         { status: 500 },
       );
@@ -204,10 +184,7 @@ export async function GET(
     // Diagnosis completion is not API recovery.
     // Keep the issue investigating until runtime evidence
     // independently confirms that the API has recovered.
-    updateIssueStatusForInvestigation(
-      investigation.id,
-      "investigating",
-    );
+    updateIssueStatusForInvestigation(investigation.id, "investigating");
 
     return NextResponse.json({
       success: true,

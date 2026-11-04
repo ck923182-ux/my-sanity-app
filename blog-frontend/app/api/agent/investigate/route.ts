@@ -4,10 +4,13 @@ import { NextResponse } from "next/server"
 import {
   createInvestigation,
 } from "@/agent/investigation-service"
-
+import { authorizeAdminApi } from "@/auth/guards";
 export async function POST(
   request: Request
 ) {
+    const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
     const body =
       await request.json()

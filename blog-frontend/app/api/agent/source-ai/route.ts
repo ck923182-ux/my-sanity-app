@@ -1,27 +1,25 @@
-import { NextResponse } from "next/server"
+import { NextResponse } from "next/server";
+import { authorizeAdminApi } from "@/auth/guards";
 
-import {
-  createSourceAnalysisTask,
-} from "@/agent/ai/source-analysis-agent"
+import { createSourceAnalysisTask } from "@/agent/ai/source-analysis-agent";
 
-export async function POST(
-  request: Request
-) {
+export async function POST(request: Request) {
+  const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
-    const body =
-      await request.json()
+    const body = await request.json();
 
     if (!body) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Request body is required.",
+          message: "Request body is required.",
         },
         {
           status: 400,
-        }
-      )
+        },
+      );
     }
 
     const {
@@ -31,36 +29,28 @@ export async function POST(
       rootCause,
       developerRecommendation,
       sourceContext,
-    } = body
+    } = body;
 
     if (!apiPath) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "apiPath is required.",
+          message: "apiPath is required.",
         },
         {
           status: 400,
-        }
-      )
+        },
+      );
     }
 
-    const result =
-      await createSourceAnalysisTask({
-        apiPath,
-        runtime:
-          runtime ?? null,
-        bottleneck:
-          bottleneck ?? null,
-        rootCause:
-          rootCause ?? null,
-        developerRecommendation:
-          developerRecommendation ??
-          null,
-        sourceContext:
-          sourceContext ?? null,
-      })
+    const result = await createSourceAnalysisTask({
+      apiPath,
+      runtime: runtime ?? null,
+      bottleneck: bottleneck ?? null,
+      rootCause: rootCause ?? null,
+      developerRecommendation: developerRecommendation ?? null,
+      sourceContext: sourceContext ?? null,
+    });
 
     return NextResponse.json({
       success: true,
@@ -69,14 +59,10 @@ export async function POST(
 
       apiPath,
 
-      message:
-        "Source analysis AI task created successfully.",
-    })
+      message: "Source analysis AI task created successfully.",
+    });
   } catch (error) {
-    console.error(
-      "Source AI error:",
-      error
-    )
+    console.error("Source AI error:", error);
 
     return NextResponse.json(
       {
@@ -88,7 +74,7 @@ export async function POST(
       },
       {
         status: 500,
-      }
-    )
+      },
+    );
   }
 }

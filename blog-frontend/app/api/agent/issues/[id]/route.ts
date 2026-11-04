@@ -1,30 +1,23 @@
+import { NextResponse } from "next/server";
+import { updateIssueStatus, type IssueStatus } from "@/agent/issue-store";
+import { authorizeAdminApi } from "@/auth/guards";
 
-import { NextResponse } from "next/server"
-import {
-  updateIssueStatus,
-  type IssueStatus,
-} from "@/agent/issue-store"
-
-export const runtime = "nodejs"
-export const dynamic = "force-dynamic"
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 type RouteContext = {
-  params: Promise<{ id: string }>
-}
+  params: Promise<{ id: string }>;
+};
 
-const ALLOWED_STATUSES: IssueStatus[] = [
-  "open",
-  "investigating",
-  "resolved",
-]
+const ALLOWED_STATUSES: IssueStatus[] = ["open", "investigating", "resolved"];
 
-export async function PATCH(
-  request: Request,
-  context: RouteContext
-) {
+export async function PATCH(request: Request, context: RouteContext) {
+  const authError = await authorizeAdminApi();
+
+  if (authError) return authError;
   try {
-    const { id } = await context.params
-    const body = await request.json().catch(() => null)
+    const { id } = await context.params;
+    const body = await request.json().catch(() => null);
 
     if (
       !body ||
@@ -34,17 +27,13 @@ export async function PATCH(
       return NextResponse.json(
         {
           success: false,
-          error:
-            'Invalid status. Use "open", "investigating", or "resolved".',
+          error: 'Invalid status. Use "open", "investigating", or "resolved".',
         },
-        { status: 400 }
-      )
+        { status: 400 },
+      );
     }
 
-    const issue = updateIssueStatus(
-      id,
-      body.status as IssueStatus
-    )
+    const issue = updateIssueStatus(id, body.status as IssueStatus);
 
     if (!issue) {
       return NextResponse.json(
@@ -52,23 +41,23 @@ export async function PATCH(
           success: false,
           error: "Issue not found.",
         },
-        { status: 404 }
-      )
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({
       success: true,
       issue,
-    })
+    });
   } catch (error) {
-    console.error("Failed to update issue status:", error)
+    console.error("Failed to update issue status:", error);
 
     return NextResponse.json(
       {
         success: false,
         error: "Failed to update issue status.",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }
