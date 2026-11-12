@@ -17,11 +17,15 @@ export async function GET(
   try {
     const { taskId } = await params;
 
-    if (!taskId) {
+    if (
+      typeof taskId !== "string" ||
+      taskId.trim().length === 0 ||
+      taskId.length > 200
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing taskId",
+          message: "Invalid task ID.",
         },
         { status: 400 },
       );

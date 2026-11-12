@@ -30,11 +30,15 @@ export async function GET(_request: Request, context: RouteContext) {
   try {
     const { taskId } = await context.params;
 
-    if (!taskId) {
+    if (
+      typeof taskId !== "string" ||
+      taskId.trim().length === 0 ||
+      taskId.length > 200
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "taskId is required.",
+          message: "Invalid task ID.",
         },
         { status: 400 },
       );
@@ -92,7 +96,7 @@ export async function GET(_request: Request, context: RouteContext) {
         taskId,
         status: "failed",
         ai: null,
-        message: investigation.error ?? "Investigation failed.",
+        message: "AI investigation failed. Check the server logs for details.",
       });
     }
 
@@ -122,7 +126,8 @@ export async function GET(_request: Request, context: RouteContext) {
           taskId,
           status: "failed",
           ai: null,
-          message: error.message,
+          message:
+            "AI investigation failed. Check the server logs for details.",
         });
       }
 
@@ -194,14 +199,10 @@ export async function GET(_request: Request, context: RouteContext) {
     });
   } catch (error) {
     console.error("Investigation polling error:", error);
-
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to retrieve investigation.",
+        message: "Failed to retrieve investigation.",
       },
       { status: 500 },
     );

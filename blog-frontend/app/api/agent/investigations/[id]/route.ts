@@ -1,77 +1,65 @@
-import { NextResponse } from "next/server"
 
-import {
-  getInvestigationById,
-} from "@/agent/investigation-store"
+import { NextResponse } from "next/server";
+
+import { getInvestigationById } from "@/agent/investigation-store";
 import { authorizeAdminApi } from "@/auth/guards";
-
 
 type RouteContext = {
   params: Promise<{
-    id: string
-  }>
-}
+    id: string;
+  }>;
+};
 
 export async function GET(
   _request: Request,
-  context: RouteContext
+  context: RouteContext,
 ) {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
-  try {
-    const { id } = await context.params
 
-    if (!id) {
+  try {
+    const { id } = await context.params;
+
+    if (
+      typeof id !== "string" ||
+      id.length === 0 ||
+      id.length > 100
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            "Investigation id is required.",
+          message: "Invalid investigation ID.",
         },
-        {
-          status: 400,
-        }
-      )
+        { status: 400 },
+      );
     }
 
-    const investigation =
-      getInvestigationById(id)
+    const investigation = getInvestigationById(id);
 
     if (!investigation) {
       return NextResponse.json(
         {
           success: false,
-          message:
-            `Investigation not found: ${id}`,
+          message: "Investigation not found.",
         },
-        {
-          status: 404,
-        }
-      )
+        { status: 404 },
+      );
     }
 
     return NextResponse.json({
       success: true,
       investigation,
-    })
+    });
   } catch (error) {
-    console.error(
-      "Investigation detail error:",
-      error
-    )
+    console.error("Investigation detail error:", error);
 
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to load investigation.",
+        message: "Failed to load investigation.",
       },
-      {
-        status: 500,
-      }
-    )
+      { status: 500 },
+    );
   }
 }

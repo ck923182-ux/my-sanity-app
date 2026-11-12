@@ -2,15 +2,33 @@
 import { z } from "zod";
 
 // ---- Input: what the author fills in the form ----
-export const generateFormSchema = z.object({
-  topic: z.string().min(3).max(200),
-  audience: z.enum(["beginner", "intermediate", "advanced"]),
-  tone: z.enum(["professional", "casual", "technical", "friendly"]),
-  length: z.enum(["short", "medium", "long"]),
-  keywords: z.string().min(2).max(300), // comma separated
-  categoryId: z.string().min(1), // Sanity _id of an existing category
-  authorId: z.string().min(1), // Sanity _id of an existing author
-});
+// ---- Input: what the author fills in the form ----
+export const generateFormSchema = z
+  .object({
+    topic: z
+      .string()
+      .trim()
+      .min(3, "Topic must contain at least 3 characters.")
+      .max(200, "Topic cannot exceed 200 characters."),
+
+    audience: z.enum(["beginner", "intermediate", "advanced"]),
+
+    tone: z.enum(["professional", "casual", "technical", "friendly"]),
+
+    length: z.enum(["short", "medium", "long"]),
+
+    // Optional in the form, so an empty string is valid.
+    keywords: z
+      .string()
+      .trim()
+      .max(300, "Keywords cannot exceed 300 characters."),
+
+    categoryId: z.string().trim().min(1, "Category is required.").max(128),
+
+    authorId: z.string().trim().min(1, "Author is required.").max(128),
+  })
+  .strict();
+
 export type GenerateFormInput = z.infer<typeof generateFormSchema>;
 
 // ---- Manus structured_output_schema ----
@@ -33,7 +51,8 @@ export const manusPostOutputSchema = {
     },
     excerpt: {
       type: "string",
-      description: "Short summary, 10 to 80 characters, used as a card excerpt.",
+      description:
+        "Short summary, 10 to 80 characters, used as a card excerpt.",
     },
     seoTitle: {
       type: "string",

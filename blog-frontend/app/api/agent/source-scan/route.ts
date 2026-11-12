@@ -4,46 +4,59 @@ import path from "path";
 import { authorizeAdminApi } from "@/auth/guards";
 
 function apiPathToRouteCandidates(apiPath: string): string[] {
-  const cleanPath = apiPath.split("?")[0].replace(/^\/+|\/+$/g, "");
-
-  if (!cleanPath) {
+  if (
+    !apiPath.startsWith("/api/") ||
+    apiPath.length > 200 ||
+    apiPath.includes("?") ||
+    apiPath.includes("#") ||
+    apiPath.includes("\\") ||
+    apiPath.includes("\0")
+  ) {
     return [];
   }
 
-  const segments = cleanPath.split("/");
+  const segments = apiPath.slice(1).split("/");
 
-  // The route files are searched inside app/api.
-  if (segments[0] === "api") {
-    segments.shift();
+  if (
+    segments.some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        !/^[a-zA-Z0-9_[\].-]+$/.test(segment),
+    )
+  ) {
+    return [];
   }
 
-  const apiRoot = path.join(process.cwd(), "app", "api");
+  const apiRoot = path.resolve(process.cwd(), "app", "api");
+  const routeSegments = segments.slice(1);
   const candidates: string[] = [];
 
-  // First, try the exact static route.
-  candidates.push(
-    path.join(apiRoot, ...segments, "route.ts"),
-    path.join(apiRoot, ...segments, "route.js"),
-  );
+  const addCandidate = (route: string[]) => {
+    for (const extension of ["ts", "js"]) {
+      const candidate = path.resolve(apiRoot, ...route, `route.${extension}`);
 
-  // Then try matching Next.js dynamic route segments.
-  // Example:
-  // status/monitoring-test -> status/[taskId]/route.ts
-  for (let i = segments.length - 1; i >= 0; i--) {
-    const dynamicSegments = [...segments];
-    dynamicSegments[i] = "[...dynamic]";
+      const relative = path.relative(apiRoot, candidate);
 
-    // Catch-all routes are not a valid substitute for every
-    // dynamic route, so check the common single-segment form.
+      if (
+        relative !== ".." &&
+        !relative.startsWith(`..${path.sep}`) &&
+        !path.isAbsolute(relative)
+      ) {
+        candidates.push(candidate);
+      }
+    }
+  };
+
+  addCandidate(routeSegments);
+
+  for (let i = routeSegments.length - 1; i >= 0; i--) {
+    const dynamicSegments = [...routeSegments];
     dynamicSegments[i] = "[taskId]";
-
-    candidates.push(
-      path.join(apiRoot, ...dynamicSegments, "route.ts"),
-      path.join(apiRoot, ...dynamicSegments, "route.js"),
-    );
+    addCandidate(dynamicSegments);
   }
 
-  // Remove duplicate candidate paths.
   return [...new Set(candidates)];
 }
 
@@ -55,17 +68,35 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url);
     const apiPath = searchParams.get("path");
 
-    if (!apiPath) {
+    if (
+      !apiPath ||
+      !apiPath.startsWith("/api/") ||
+      apiPath.length > 200 ||
+      apiPath.includes("?") ||
+      apiPath.includes("#") ||
+      apiPath.includes("\\") ||
+      apiPath.includes("\0")
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing API path. Example: ?path=/api/update-post",
+          message: "Invalid API path.",
         },
         { status: 400 },
       );
     }
 
     const candidates = apiPathToRouteCandidates(apiPath);
+
+    if (candidates.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid API route format.",
+        },
+        { status: 400 },
+      );
+    }
 
     for (const filePath of candidates) {
       if (!fs.existsSync(filePath)) {

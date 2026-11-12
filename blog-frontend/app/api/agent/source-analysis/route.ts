@@ -51,23 +51,48 @@ function analyzeRootCause(
 }
 
 function apiPathToRouteCandidates(apiPath: string): string[] {
-  const cleanPath = apiPath.split("?")[0].replace(/^\/+|\/+$/g, "");
-
-  if (!cleanPath) {
+  if (
+    !apiPath.startsWith("/api/") ||
+    apiPath.length > 200 ||
+    apiPath.includes("?") ||
+    apiPath.includes("#") ||
+    apiPath.includes("\\") ||
+    apiPath.includes("\0")
+  ) {
     return [];
   }
 
-  const segments = cleanPath.split("/");
+  const segments = apiPath.slice(1).split("/");
 
-  if (segments[0] === "api") {
-    segments.shift();
+  if (
+    segments.some(
+      (segment) =>
+        !segment ||
+        segment === "." ||
+        segment === ".." ||
+        !/^[a-zA-Z0-9_[\].-]+$/.test(segment),
+    )
+  ) {
+    return [];
   }
 
-  return [
-    path.join(process.cwd(), "app", "api", ...segments, "route.ts"),
+  const apiRoot = path.resolve(process.cwd(), "app", "api");
 
-    path.join(process.cwd(), "app", "api", ...segments, "route.js"),
+  const candidates = [
+    path.resolve(apiRoot, ...segments.slice(1), "route.ts"),
+    path.resolve(apiRoot, ...segments.slice(1), "route.js"),
   ];
+
+  return candidates.filter((candidate) => {
+    const relative = path.relative(apiRoot, candidate);
+
+    return (
+      relative !== "" &&
+      !relative.startsWith(`..${path.sep}`) &&
+      relative !== ".." &&
+      !path.isAbsolute(relative)
+    );
+  });
 }
 
 function mapBottleneckToSource(
@@ -127,19 +152,35 @@ export async function GET(request: Request) {
 
     const apiPath = searchParams.get("path");
 
-    if (!apiPath) {
+    if (
+      !apiPath ||
+      !apiPath.startsWith("/api/") ||
+      apiPath.length > 200 ||
+      apiPath.includes("?") ||
+      apiPath.includes("#") ||
+      apiPath.includes("\\") ||
+      apiPath.includes("\0")
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "Missing API path. Example: ?path=/api/update-post",
+          message: "Invalid API path.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
     const candidates = apiPathToRouteCandidates(apiPath);
+
+    if (candidates.length === 0) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Invalid API route format.",
+        },
+        { status: 400 },
+      );
+    }
 
     for (const filePath of candidates) {
       if (!fs.existsSync(filePath)) {

@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 
 import { getSourceAnalysisDiagnosis } from "@/agent/ai/source-analysis-agent";
@@ -13,18 +14,21 @@ export async function GET(_request: Request, context: RouteContext) {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
+
   try {
     const { taskId } = await context.params;
 
-    if (!taskId) {
+    if (
+      typeof taskId !== "string" ||
+      taskId.trim().length === 0 ||
+      taskId.length > 200
+    ) {
       return NextResponse.json(
         {
           success: false,
-          message: "taskId is required.",
+          message: "Invalid task ID.",
         },
-        {
-          status: 400,
-        },
+        { status: 400 },
       );
     }
 
@@ -51,14 +55,9 @@ export async function GET(_request: Request, context: RouteContext) {
     return NextResponse.json(
       {
         success: false,
-        message:
-          error instanceof Error
-            ? error.message
-            : "Failed to retrieve source analysis diagnosis.",
+        message: "Failed to retrieve source analysis diagnosis.",
       },
-      {
-        status: 500,
-      },
+      { status: 500 },
     );
   }
 }

@@ -1,5 +1,9 @@
+
 import { NextResponse } from "next/server";
-import { updateIssueStatus, type IssueStatus } from "@/agent/issue-store";
+import {
+  updateIssueStatus,
+  type IssueStatus,
+} from "@/agent/issue-store";
 import { authorizeAdminApi } from "@/auth/guards";
 
 export const runtime = "nodejs";
@@ -9,18 +13,37 @@ type RouteContext = {
   params: Promise<{ id: string }>;
 };
 
-const ALLOWED_STATUSES: IssueStatus[] = ["open", "investigating", "resolved"];
+const ALLOWED_STATUSES: IssueStatus[] = [
+  "open",
+  "investigating",
+  "resolved",
+];
 
 export async function PATCH(request: Request, context: RouteContext) {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
+
   try {
     const { id } = await context.params;
-    const body = await request.json().catch(() => null);
 
     if (
-      !body ||
+      typeof id !== "string" ||
+      id.length === 0 ||
+      id.length > 100
+    ) {
+      return NextResponse.json(
+        { success: false, error: "Invalid issue ID." },
+        { status: 400 },
+      );
+    }
+
+    const body: unknown = await request.json().catch(() => null);
+
+    if (
+      typeof body !== "object" ||
+      body === null ||
+      !("status" in body) ||
       typeof body.status !== "string" ||
       !ALLOWED_STATUSES.includes(body.status as IssueStatus)
     ) {
@@ -37,10 +60,7 @@ export async function PATCH(request: Request, context: RouteContext) {
 
     if (!issue) {
       return NextResponse.json(
-        {
-          success: false,
-          error: "Issue not found.",
-        },
+        { success: false, error: "Issue not found." },
         { status: 404 },
       );
     }
