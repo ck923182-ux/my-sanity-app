@@ -4,6 +4,16 @@ export type OperationTiming = {
   duration: number
 }
 
+function sanitizeOperationName(name: string): string {
+  return name
+    .replace(
+      /\b(token|password|secret|authorization|api[_-]?key)\s*[:=]\s*\S+/gi,
+      "$1=[REDACTED]"
+    )
+    .replace(/[\r\n\t]/g, " ")
+    .slice(0, 100);
+}
+
 export async function measureOperation<T>(
   name: string,
   operation: () => Promise<T>
@@ -22,7 +32,7 @@ export async function measureOperation<T>(
   return {
     result,
     timing: {
-      name,
+      name: sanitizeOperationName(name),
       duration,
     },
   }

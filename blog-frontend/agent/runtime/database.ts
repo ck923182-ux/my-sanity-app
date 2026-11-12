@@ -1,4 +1,3 @@
-
 import Database from "better-sqlite3";
 import path from "node:path";
 import fs from "node:fs";
@@ -93,7 +92,51 @@ function createDatabase(): Database.Database {
       migration_id TEXT PRIMARY KEY,
       completed_at INTEGER NOT NULL
     );
-  `);
+    `);
+
+  const migrationId = "2026-11-12-redact-raw-request-fingerprints";
+
+  const runFingerprintMigration = db.transaction(() => {
+    const existingMigration = db
+      .prepare(
+        `SELECT migration_id
+         FROM agent_history_migrations
+         WHERE migration_id = ?`,
+      )
+      .get(migrationId);
+
+    if (existingMigration) {
+      return;
+    }
+
+    // Remove historical raw request data from stored fingerprints.
+    db.prepare(
+      `
+      UPDATE api_request_logs
+      SET request_fingerprint = NULL
+      WHERE request_fingerprint IS NOT NULL
+    `,
+    ).run();
+
+    // Reservations are temporary duplicate-detection records.
+    db.prepare(
+      `
+      DELETE FROM api_request_reservations
+    `,
+    ).run();
+
+    db.prepare(
+      `
+      INSERT INTO agent_history_migrations (
+        migration_id,
+        completed_at
+      )
+      VALUES (?, ?)
+    `,
+    ).run(migrationId, Date.now());
+  });
+
+  runFingerprintMigration.immediate();
 
   return db;
 }

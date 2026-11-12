@@ -1,48 +1,96 @@
-import {
-  addRequestLog,
-  reserveRequest,
-} from "../store";
+import { addRequestLog, reserveRequest } from "../store";
 import { triggerAutomaticInvestigation } from "../automatic-investigator";
-import {
-  measureOperation,
-  type OperationTiming,
-} from "./operation-monitor";
+import { measureOperation, type OperationTiming } from "./operation-monitor";
 import { checkApiRecovery } from "../recovery-service";
+import { createHmac } from "node:crypto";
+import { resolveApiRoute } from "./route-matcher";
+
+function getSafeErrorDetails(error: unknown) {
+  if (error instanceof Error) {
+    return {
+      errorName: error.name.slice(0, 100),
+      message: "An internal operation failed.",
+    };
+  }
+
+  return {
+    errorName: "UnknownError",
+    message: "An internal operation failed.",
+  };
+}
 
 type ApiRouteHandler = (
   request: Request,
   context?: unknown,
-  operations?: OperationRecorder
+  operations?: OperationRecorder,
 ) => Response | Promise<Response>;
 
 export type OperationRecorder = {
-  measure: <T>(
-    name: string,
-    operation: () => Promise<T>
-  ) => Promise<T>;
+  measure: <T>(name: string, operation: () => Promise<T>) => Promise<T>;
 };
 
-async function getRequestBody(
-  request: Request
-): Promise<string> {
-  if (
-    request.method === "GET" ||
-    request.method === "HEAD"
-  ) {
+async function getRequestBody(request: Request): Promise<string> {
+  if (request.method === "GET" || request.method === "HEAD") {
     return "";
+  }
+
+  const MAX_FINGERPRINT_BODY_SIZE = 64 * 1024;
+
+  const uniqueUnfingerprintableMarker = () =>
+    `__UNFINGERPRINTABLE__:${crypto.randomUUID()}`;
+
+  const contentLength = Number(
+    request.headers.get("content-length"),
+  );
+
+  if (
+    Number.isFinite(contentLength) &&
+    contentLength > MAX_FINGERPRINT_BODY_SIZE
+  ) {
+    return uniqueUnfingerprintableMarker();
   }
 
   try {
-    return await request.clone().text();
+    const body = request.clone().body;
+
+    if (!body) {
+      return "";
+    }
+
+    const reader = body.getReader();
+    const chunks: Uint8Array[] = [];
+    let totalBytes = 0;
+
+    while (true) {
+      const { done, value } = await reader.read();
+
+      if (done) break;
+
+      totalBytes += value.byteLength;
+
+      if (totalBytes > MAX_FINGERPRINT_BODY_SIZE) {
+        await reader.cancel();
+        return uniqueUnfingerprintableMarker();
+      }
+
+      chunks.push(value);
+    }
+
+    const combined = new Uint8Array(totalBytes);
+    let offset = 0;
+
+    for (const chunk of chunks) {
+      combined.set(chunk, offset);
+      offset += chunk.byteLength;
+    }
+
+    return new TextDecoder().decode(combined);
   } catch {
-    return "";
+    return uniqueUnfingerprintableMarker();
   }
 }
 
-function createRequestFingerprint(
-  request: Request,
-  body: string
-): string {
+function createRequestFingerprint(request: Request, body: string): string {
   const url = new URL(request.url);
 
   const ignoredParams = new Set([
@@ -60,21 +108,25 @@ function createRequestFingerprint(
     .sort(([keyA, valueA], [keyB, valueB]) => {
       const keyComparison = keyA.localeCompare(keyB);
 
-      return keyComparison !== 0
-        ? keyComparison
-        : valueA.localeCompare(valueB);
+      return keyComparison !== 0 ? keyComparison : valueA.localeCompare(valueB);
     });
 
-  const normalizedSearch = new URLSearchParams(
-    normalizedParams
-  ).toString();
+  const normalizedSearch = new URLSearchParams(normalizedParams).toString();
 
-  return [
+  const fingerprintData = [
     request.method.toUpperCase(),
     url.pathname,
     normalizedSearch,
     body,
   ].join(":");
+
+  const secret = process.env.BETTER_AUTH_SECRET;
+
+  if (!secret || secret.length < 32) {
+    throw new Error("Monitoring fingerprint secret is not configured.");
+  }
+
+  return createHmac("sha256", secret).update(fingerprintData).digest("hex");
 }
 
 function processMonitoringLog(
@@ -92,7 +144,7 @@ function processMonitoringLog(
     duplicateCount: number;
     operations: OperationTiming[];
   },
-  requestUrl: string
+  requestUrl: string,
 ): void {
   // Logging failures must not change the API response.
   try {
@@ -101,7 +153,7 @@ function processMonitoringLog(
     console.error("API MONITOR PERSISTENCE FAILED:", {
       requestId: log.id,
       path: log.path,
-      error,
+      ...getSafeErrorDetails(error),
     });
   }
 
@@ -112,15 +164,19 @@ function processMonitoringLog(
     console.error("API RECOVERY CHECK FAILED:", {
       requestId: log.id,
       path: log.path,
-      error,
+      ...getSafeErrorDetails(error),
     });
   }
 
   // Handle both asynchronous rejection and synchronous failures.
   try {
+    const safeRequestUrl = new URL(requestUrl);
+    safeRequestUrl.search = "";
+    safeRequestUrl.hash = "";
+
     void triggerAutomaticInvestigation(
       log.path,
-      requestUrl
+      safeRequestUrl.toString(),
     ).catch((error) => {
       console.error("AUTOMATIC INVESTIGATION FAILED:", {
         requestId: log.id,
@@ -139,9 +195,7 @@ function processMonitoringLog(
 
 export async function monitorApi<T extends Response>(
   request: Request,
-  handler: (
-    operations: OperationRecorder
-  ) => Promise<T>
+  handler: (operations: OperationRecorder) => Promise<T>,
 ): Promise<T> {
   const start = performance.now();
   const timestamp = Date.now();
@@ -149,16 +203,13 @@ export async function monitorApi<T extends Response>(
 
   const requestBody = await getRequestBody(request);
 
-  const requestFingerprint = createRequestFingerprint(
-    request,
-    requestBody
-  );
+  const requestFingerprint = createRequestFingerprint(request, requestBody);
 
   // Atomically reserve this request before running its handler.
   const duplicateInfo = reserveRequest(
     requestId,
     requestFingerprint,
-    timestamp
+    timestamp,
   );
 
   const operationTimings: OperationTiming[] = [];
@@ -166,12 +217,9 @@ export async function monitorApi<T extends Response>(
   const operations: OperationRecorder = {
     measure: async <T>(
       name: string,
-      operation: () => Promise<T>
+      operation: () => Promise<T>,
     ): Promise<T> => {
-      const { result, timing } = await measureOperation(
-        name,
-        operation
-      );
+      const { result, timing } = await measureOperation(name, operation);
 
       operationTimings.push(timing);
 
@@ -182,12 +230,16 @@ export async function monitorApi<T extends Response>(
   const createLog = (status: number, duration: number) => ({
     id: requestId,
     method: request.method,
-    path: new URL(request.url).pathname,
-    status,
+path:
+  resolveApiRoute(new URL(request.url).pathname) ??
+  new URL(request.url).pathname,    status,
     duration,
     timestamp,
     userAgent:
-      request.headers.get("user-agent") ?? undefined,
+      request.headers
+        .get("user-agent")
+        ?.replace(/[\r\n\t]/g, " ")
+        .slice(0, 200) || undefined,
     requestFingerprint,
     isDuplicate: duplicateInfo.isDuplicate,
     duplicateOf: duplicateInfo.duplicateOf,
@@ -201,13 +253,18 @@ export async function monitorApi<T extends Response>(
   try {
     response = await handler(operations);
   } catch (error) {
-    const duration = Math.round(
-      performance.now() - start
-    );
+    const duration = Math.round(performance.now() - start);
 
     const log = createLog(500, duration);
 
-    console.error("API MONITOR HANDLER ERROR:", log);
+    console.error("API MONITOR HANDLER ERROR:", {
+      requestId: log.id,
+      method: log.method,
+      path: log.path,
+      status: log.status,
+      duration: log.duration,
+      ...getSafeErrorDetails(error),
+    });
 
     processMonitoringLog(log, request.url);
 
@@ -216,9 +273,7 @@ export async function monitorApi<T extends Response>(
   }
 
   // A successful handler stays successful even if monitoring fails.
-  const duration = Math.round(
-    performance.now() - start
-  );
+  const duration = Math.round(performance.now() - start);
 
   const log = createLog(response.status, duration);
 
@@ -229,17 +284,10 @@ export async function monitorApi<T extends Response>(
   return response;
 }
 
-export function withApiMonitoring<
-  T extends ApiRouteHandler
->(handler: T): T {
-  const wrappedHandler = async (
-    request: Request,
-    context?: unknown
-  ) => {
+export function withApiMonitoring<T extends ApiRouteHandler>(handler: T): T {
+  const wrappedHandler = async (request: Request, context?: unknown) => {
     return monitorApi(request, (operations) =>
-      Promise.resolve(
-        handler(request, context, operations)
-      )
+      Promise.resolve(handler(request, context, operations)),
     );
   };
 
