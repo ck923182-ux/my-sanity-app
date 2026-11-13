@@ -1,20 +1,13 @@
-
-import {
-  getInvestigations,
-} from "@/agent/investigation-store";
+import { getInvestigations } from "@/agent/investigation-store";
 
 import {
   analyzeRecentApiHealth,
   type ApiHealthResult,
 } from "@/agent/analyzer/health-analyzer";
 
-import {
-  resolveApiRoute,
-} from "@/agent/runtime/route-matcher";
+import { resolveApiRoute } from "@/agent/runtime/route-matcher";
 
-import {
-  createInvestigation,
-} from "@/agent/investigation-service";
+import { createInvestigation } from "@/agent/investigation-service";
 
 import { getRequestLogs } from "@/agent/store";
 import { getIssues } from "@/agent/issue-store";
@@ -24,12 +17,9 @@ import {
   type AutomaticInvestigationDecision,
 } from "@/agent/automatic-investigation-policy";
 
-import {
-  runAutomaticInvestigation,
-} from "@/agent/automatic-investigation-runner";
+import { runAutomaticInvestigation } from "@/agent/automatic-investigation-runner";
 
-export type { AutomaticInvestigationDecision } from
-  "@/agent/automatic-investigation-policy";
+export type { AutomaticInvestigationDecision } from "@/agent/automatic-investigation-policy";
 
 const COOLDOWN_MS = 10 * 60 * 1000;
 const MIN_REQUESTS = 3;
@@ -37,8 +27,7 @@ const MIN_REQUESTS = 3;
 export function shouldAutomaticallyInvestigate(
   health: ApiHealthResult,
 ): AutomaticInvestigationDecision {
-  const normalizedPath =
-    resolveApiRoute(health.path) ?? health.path;
+  const normalizedPath = resolveApiRoute(health.path) ?? health.path;
 
   // Excluded routes and insufficient traffic need no store reads.
   if (
@@ -49,32 +38,23 @@ export function shouldAutomaticallyInvestigate(
   }
 
   const activeIssue = getIssues().some((issue) => {
-    const issuePath =
-      resolveApiRoute(issue.apiPath) ?? issue.apiPath;
+    const issuePath = resolveApiRoute(issue.apiPath) ?? issue.apiPath;
 
-    return (
-      issuePath === normalizedPath &&
-      issue.status === "investigating"
-    );
+    return issuePath === normalizedPath && issue.status === "investigating";
   });
 
   const now = Date.now();
 
-  const recentInvestigation = getInvestigations().some(
-    (investigation) => {
-      const investigationPath =
-        resolveApiRoute(investigation.apiPath) ??
-        investigation.apiPath;
+  const recentInvestigation = getInvestigations().some((investigation) => {
+    const investigationPath =
+      resolveApiRoute(investigation.apiPath) ?? investigation.apiPath;
 
-      const age = now - investigation.createdAt;
+    const age = now - investigation.createdAt;
 
-      return (
-        investigationPath === normalizedPath &&
-        age >= 0 &&
-        age < COOLDOWN_MS
-      );
-    },
-  );
+    return (
+      investigationPath === normalizedPath && age >= 0 && age < COOLDOWN_MS
+    );
+  });
 
   return evaluateAutomaticInvestigation(health, {
     hasActiveIssue: activeIssue,
@@ -86,8 +66,7 @@ export async function triggerAutomaticInvestigation(
   apiPath: string,
   requestUrl: string,
 ): Promise<void> {
-  const normalizedPath =
-    resolveApiRoute(apiPath) ?? apiPath;
+  const normalizedPath = resolveApiRoute(apiPath) ?? apiPath;
 
   // Never automatically investigate the agent's own APIs.
   if (normalizedPath.startsWith("/api/agent")) {
@@ -95,11 +74,7 @@ export async function triggerAutomaticInvestigation(
   }
 
   const matchingLogs = getRequestLogs()
-    .filter(
-      (log) =>
-        (resolveApiRoute(log.path) ?? log.path) ===
-        normalizedPath,
-    )
+    .filter((log) => (resolveApiRoute(log.path) ?? log.path) === normalizedPath)
     .sort((a, b) => b.timestamp - a.timestamp);
 
   const latestMatchingLog = matchingLogs[0];
@@ -107,8 +82,7 @@ export async function triggerAutomaticInvestigation(
   // Preserve the existing authentication-failure safeguard.
   if (
     latestMatchingLog &&
-    (latestMatchingLog.status === 401 ||
-      latestMatchingLog.status === 403)
+    (latestMatchingLog.status === 401 || latestMatchingLog.status === 403)
   ) {
     console.log("AUTOMATIC INVESTIGATION SKIPPED:", {
       apiPath: normalizedPath,
@@ -125,23 +99,20 @@ export async function triggerAutomaticInvestigation(
   }
 
   try {
-    const result = await runAutomaticInvestigation(
-      normalizedPath,
-      {
-        getHealth: () => health,
+    const result = await runAutomaticInvestigation(normalizedPath, {
+      getHealth: () => health,
 
-        decide: shouldAutomaticallyInvestigate,
+      decide: shouldAutomaticallyInvestigate,
 
-        startInvestigation: async (path) => {
-          console.log("AUTOMATIC INVESTIGATION STARTED:", {
-            apiPath: path,
-            health: health.health,
-          });
+      startInvestigation: async (path) => {
+        console.log("AUTOMATIC INVESTIGATION STARTED:", {
+          apiPath: path,
+          health: health.health,
+        });
 
-          return createInvestigation(path, requestUrl);
-        },
+        return createInvestigation(path, requestUrl);
       },
-    );
+    });
 
     if (result.status === "skipped") {
       console.log("AUTOMATIC INVESTIGATION SKIPPED:", {
@@ -160,7 +131,9 @@ export async function triggerAutomaticInvestigation(
   } catch (error) {
     console.error("AUTOMATIC INVESTIGATION FAILED:", {
       apiPath: normalizedPath,
-      error,
+      errorName:
+        error instanceof Error ? error.name.slice(0, 100) : "UnknownError",
+      message: "Automatic investigation could not be completed.",
     });
   }
 }

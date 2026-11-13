@@ -19,6 +19,20 @@ function getSafeErrorDetails(error: unknown) {
   };
 }
 
+function getSafeApiPath(request: Request): string {
+  const pathname = new URL(request.url).pathname;
+
+  try {
+    return resolveApiRoute(pathname) ?? pathname;
+  } catch (error) {
+    console.error("API ROUTE NORMALIZATION FAILED:", {
+      ...getSafeErrorDetails(error),
+    });
+
+    return pathname;
+  }
+}
+
 type ApiRouteHandler = (
   request: Request,
   context?: unknown,
@@ -39,9 +53,7 @@ async function getRequestBody(request: Request): Promise<string> {
   const uniqueUnfingerprintableMarker = () =>
     `__UNFINGERPRINTABLE__:${crypto.randomUUID()}`;
 
-  const contentLength = Number(
-    request.headers.get("content-length"),
-  );
+  const contentLength = Number(request.headers.get("content-length"));
 
   if (
     Number.isFinite(contentLength) &&
@@ -181,14 +193,31 @@ function processMonitoringLog(
       console.error("AUTOMATIC INVESTIGATION FAILED:", {
         requestId: log.id,
         path: log.path,
-        error,
+        ...getSafeErrorDetails(error),
       });
     });
   } catch (error) {
     console.error("AUTOMATIC INVESTIGATION COULD NOT START:", {
       requestId: log.id,
       path: log.path,
-      error,
+      ...getSafeErrorDetails(error),
+    });
+  }
+}
+
+function safelyProcessMonitoringLog(
+  createLog: () => Parameters<typeof processMonitoringLog>[0],
+  requestUrl: string,
+  requestId: string,
+): void {
+  try {
+    const log = createLog();
+
+    processMonitoringLog(log, requestUrl);
+  } catch (error) {
+    console.error("API MONITORING LOG CREATION FAILED:", {
+      requestId,
+      ...getSafeErrorDetails(error),
     });
   }
 }
@@ -201,16 +230,29 @@ export async function monitorApi<T extends Response>(
   const timestamp = Date.now();
   const requestId = crypto.randomUUID();
 
-  const requestBody = await getRequestBody(request);
+  let requestFingerprint = `MONITORING_BYPASS:${requestId}`;
 
-  const requestFingerprint = createRequestFingerprint(request, requestBody);
+  let duplicateInfo: {
+    isDuplicate: boolean;
+    duplicateOf?: string;
+    duplicateCount: number;
+  } = {
+    isDuplicate: false,
+    duplicateCount: 0,
+  };
+  try {
+    const requestBody = await getRequestBody(request);
 
-  // Atomically reserve this request before running its handler.
-  const duplicateInfo = reserveRequest(
-    requestId,
-    requestFingerprint,
-    timestamp,
-  );
+    requestFingerprint = createRequestFingerprint(request, requestBody);
+
+    // Reserve the request only when fingerprint generation succeeds.
+    duplicateInfo = reserveRequest(requestId, requestFingerprint, timestamp);
+  } catch (error) {
+    console.error("API MONITORING SETUP FAILED:", {
+      requestId,
+      ...getSafeErrorDetails(error),
+    });
+  }
 
   const operationTimings: OperationTiming[] = [];
 
@@ -230,9 +272,8 @@ export async function monitorApi<T extends Response>(
   const createLog = (status: number, duration: number) => ({
     id: requestId,
     method: request.method,
-path:
-  resolveApiRoute(new URL(request.url).pathname) ??
-  new URL(request.url).pathname,    status,
+    path: getSafeApiPath(request),
+    status,
     duration,
     timestamp,
     userAgent:
@@ -258,13 +299,18 @@ path:
     const log = createLog(500, duration);
 
     console.error("API MONITOR HANDLER ERROR:", {
-      requestId: log.id,
-      method: log.method,
-      path: log.path,
-      status: log.status,
-      duration: log.duration,
+      requestId,
+      method: request.method,
+      status: 500,
+      duration,
       ...getSafeErrorDetails(error),
     });
+
+    safelyProcessMonitoringLog(
+      () => createLog(500, duration),
+      request.url,
+      requestId,
+    );
 
     processMonitoringLog(log, request.url);
 
@@ -275,11 +321,11 @@ path:
   // A successful handler stays successful even if monitoring fails.
   const duration = Math.round(performance.now() - start);
 
-  const log = createLog(response.status, duration);
-
-  console.log("API MONITOR LOG:", log);
-
-  processMonitoringLog(log, request.url);
+  safelyProcessMonitoringLog(
+    () => createLog(response.status, duration),
+    request.url,
+    requestId,
+  );
 
   return response;
 }
