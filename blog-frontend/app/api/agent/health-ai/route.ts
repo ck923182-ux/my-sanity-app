@@ -1,70 +1,58 @@
+import { NextResponse } from "next/server";
 
-import { NextResponse } from "next/server"
+import { getRequestLogs } from "@/agent/store";
+import { analyzeApiHealth } from "@/agent/analyzer/health-analyzer";
 
-import { getRequestLogs } from "@/agent/store"
-import { analyzeApiHealth } from "@/agent/analyzer/health-analyzer"
-
-import { createApiHealthTask } from "@/agent/ai/api-health-agent"
+import { createApiHealthTask } from "@/agent/ai/api-health-agent";
 import { authorizeAdminApi } from "@/auth/guards";
 
+import { getAiDiagnosis, saveAiTask } from "@/agent/ai-store";
 
-import {
-  getAiDiagnosis,
-  saveAiTask,
-} from "@/agent/ai-store"
-
-import type { ApiStats } from "@/agent/types"
+import type { ApiStats } from "@/agent/types";
 
 export async function GET() {
- const authError = await authorizeAdminApi();
+  const authError = await authorizeAdminApi();
 
   if (authError) return authError;
 
   try {
-    const logs = getRequestLogs()
+    const logs = getRequestLogs();
 
     // --------------------------------
     // Analyze each API separately
     // --------------------------------
 
     const apiKeys = Array.from(
-      new Set(
-        logs.map(
-          (log) => `${log.method}:${log.path}`
-        )
-      )
-    )
+      new Set(logs.map((log) => `${log.method}:${log.path}`)),
+    );
 
     const stats = apiKeys
       .map((key) => {
-        const separatorIndex = key.indexOf(":")
+        const separatorIndex = key.indexOf(":");
 
-        const method = key.slice(0, separatorIndex)
-        const path = key.slice(separatorIndex + 1)
+        const method = key.slice(0, separatorIndex);
+        const path = key.slice(separatorIndex + 1);
 
-        return analyzeApiHealth(path, method)
+        return analyzeApiHealth(path, method);
       })
       .filter(
-        (result): result is NonNullable<typeof result> =>
-          result !== null
-      )
+        (result): result is NonNullable<typeof result> => result !== null,
+      );
 
     // --------------------------------
     // Find problematic API
     // --------------------------------
 
     const problematicApi = stats.find(
-      (api) =>
-        api.health === "warning" ||
-        api.health === "critical"
-    )
+      (api) => api.health === "warning" || api.health === "critical",
+    );
 
     if (!problematicApi) {
       return NextResponse.json({
         success: true,
         message: "No warning or critical API found",
         diagnosis: null,
-      })
+      });
     }
 
     // --------------------------------
@@ -86,19 +74,17 @@ export async function GET() {
       errorRate: problematicApi.errorRate,
       duplicateCalls: problematicApi.duplicateCalls,
 
-      issues: problematicApi.issues.map(
-        (issue) => issue.message
-      ),
-    }
+      issues: problematicApi.issues.map((issue) => issue.message),
+    };
 
     // --------------------------------
     // Check for existing AI diagnosis
     // --------------------------------
 
-    const existing = getAiDiagnosis(apiStats)
+    const existing = getAiDiagnosis(apiStats);
 
-    // Existing diagnosis
-    if (existing?.diagnosis) {
+    // Existing completed diagnosis
+    if (existing?.status === "completed" && existing.diagnosis) {
       return NextResponse.json({
         success: true,
         message: "Existing AI diagnosis returned",
@@ -106,33 +92,31 @@ export async function GET() {
         taskId: existing.taskId,
         api: problematicApi,
         diagnosis: existing.diagnosis,
-      })
+      });
     }
 
-    // Existing AI task is still running
-    if (existing?.taskId) {
+    // Existing task is still pending
+    if (existing?.status === "pending") {
       return NextResponse.json({
         success: true,
         message: "Existing AI task is still running",
-        status: "running",
+        status: "pending",
         taskId: existing.taskId,
         api: problematicApi,
         diagnosis: null,
-      })
+      });
     }
+
+    // Failed or timed-out tasks fall through.
+    // A new AI task will be created below.
 
     // --------------------------------
     // No existing task → create one
     // --------------------------------
 
-    const { taskId } = await createApiHealthTask(
-      apiStats
-    )
+    const { taskId } = await createApiHealthTask(apiStats);
 
-    saveAiTask(
-      apiStats,
-      taskId
-    )
+    saveAiTask(apiStats, taskId);
 
     return NextResponse.json({
       success: true,
@@ -141,16 +125,16 @@ export async function GET() {
       taskId,
       api: problematicApi,
       diagnosis: null,
-    })
+    });
   } catch (error) {
-    console.error("Health AI error:", error)
+    console.error("Health AI error:", error);
 
     return NextResponse.json(
       {
         success: false,
         message: "Failed to create health AI task",
       },
-      { status: 500 }
-    )
+      { status: 500 },
+    );
   }
 }

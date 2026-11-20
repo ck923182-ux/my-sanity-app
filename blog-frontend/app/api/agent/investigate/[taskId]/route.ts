@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-
+const MAX_INVESTIGATION_DURATION_MS = 10 * 60 * 1000;
 import {
   getSourceAnalysisDiagnosis,
   SourceAnalysisTaskFailedError,
@@ -97,6 +97,39 @@ export async function GET(_request: Request, context: RouteContext) {
         status: "failed",
         ai: null,
         message: "AI investigation failed. Check the server logs for details.",
+      });
+    }
+
+        // Stop polling when the maximum investigation duration is reached.
+    const investigationAge = Date.now() - investigation.createdAt;
+
+    if (investigationAge >= MAX_INVESTIGATION_DURATION_MS) {
+      const timedOutInvestigation = updateInvestigation(
+        investigation.id,
+        {
+          status: "failed",
+          error: "Investigation exceeded the maximum duration of 10 minutes.",
+        },
+      );
+
+      if (!timedOutInvestigation) {
+        return NextResponse.json(
+          {
+            success: false,
+            message: "Investigation timeout could not be recorded.",
+          },
+          { status: 500 },
+        );
+      }
+
+      updateIssueStatusForInvestigation(investigation.id, "open");
+
+      return NextResponse.json({
+        success: true,
+        taskId,
+        status: "failed",
+        ai: null,
+        message: "Investigation timed out after 10 minutes.",
       });
     }
 

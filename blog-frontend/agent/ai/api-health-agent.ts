@@ -1,25 +1,19 @@
-import type { ApiStats } from "@/agent/types"
-import { buildApiHealthPrompt } from "./api-health-prompt"
 
-const MANUS_BASE_URL = "https://api.manus.ai/v2"
+import type { ApiStats } from "@/agent/types";
+import { buildApiHealthPrompt } from "./api-health-prompt";
+import { manusRequest } from "./manus-client";
 
 export type ApiHealthDiagnosis = {
-  severity: "info" | "warning" | "critical"
-  diagnosis: string
-  recommendation: string
-  investigationArea: string
-}
+  severity: "info" | "warning" | "critical";
+  diagnosis: string;
+  recommendation: string;
+  investigationArea: string;
+};
 
-function manusHealthHeaders(): HeadersInit {
-  const apiKey = process.env.MANUS_API_KEY
-
-  if (!apiKey) {
-    throw new Error("MANUS_API_KEY is not set")
-  }
-
-  return {
-    "Content-Type": "application/json",
-    "x-manus-api-key": apiKey,
+export class ApiHealthTaskFailedError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "ApiHealthTaskFailedError";
   }
 }
 
@@ -47,16 +41,59 @@ const apiHealthDiagnosisSchema = {
     "investigationArea",
   ],
   additionalProperties: false,
+};
+
+function isRecord(value: unknown): value is Record<string, unknown> {
+  return typeof value === "object" && value !== null;
 }
 
-export async function createApiHealthTask(
-  stats: ApiStats
-): Promise<{ taskId: string }> {
-  const prompt = buildApiHealthPrompt(stats)
 
-  const response = await fetch(`${MANUS_BASE_URL}/task.create`, {
+function validateApiHealthDiagnosis(
+  value: unknown,
+): ApiHealthDiagnosis {
+  if (!isRecord(value)) {
+    throw new Error("Manus returned an invalid API health diagnosis.");
+  }
+
+  const validSeverity = [
+    "info",
+    "warning",
+    "critical",
+  ].includes(String(value.severity));
+
+  const requiredFields = [
+    "diagnosis",
+    "recommendation",
+    "investigationArea",
+  ] as const;
+
+  if (
+    !validSeverity ||
+    !requiredFields.every(
+      (field) =>
+        typeof value[field] === "string" &&
+        value[field].trim().length > 0,
+    )
+  ) {
+    throw new Error("Manus returned an incomplete API health diagnosis.");
+  }
+
+  return {
+    severity: value.severity as ApiHealthDiagnosis["severity"],
+    diagnosis: value.diagnosis as string,
+    recommendation: value.recommendation as string,
+    investigationArea: value.investigationArea as string,
+  };
+}
+
+
+export async function createApiHealthTask(
+  stats: ApiStats,
+): Promise<{ taskId: string }> {
+  const prompt = buildApiHealthPrompt(stats);
+
+  const data = await manusRequest("task.create", {
     method: "POST",
-    headers: manusHealthHeaders(),
     body: JSON.stringify({
       message: {
         content: [
@@ -65,76 +102,63 @@ export async function createApiHealthTask(
             text: prompt,
           },
         ],
-
-        // Health analysis does not need browsing or external connectors.
         connectors: [],
         enable_skills: [],
       },
-
-      // Keep this separate from your content-generation implementation.
       agent_profile: "lite",
-
-      // We need structured JSON for our application.
       structured_output_schema: apiHealthDiagnosisSchema,
-
-      // Health analysis should not appear as normal content-generation work.
       hide_in_task_list: true,
-
-      // Explicitly keep the task private.
       share_visibility: "private",
     }),
-  })
+  });
 
-  const data = await response.json()
-
-  if (!response.ok || !data.ok) {
-    throw new Error(
-      data?.error?.message ?? "Failed to create API health task"
-    )
+  if (
+    typeof data.task_id !== "string" ||
+    data.task_id.trim().length === 0
+  ) {
+    throw new Error("Manus returned an invalid API health task ID.");
   }
 
   return {
     taskId: data.task_id,
-  }
+  };
 }
 
 export async function getApiHealthDiagnosis(
-  taskId: string
+  taskId: string,
 ): Promise<ApiHealthDiagnosis | null> {
-  const response = await fetch(
-    `${MANUS_BASE_URL}/task.listMessages?task_id=${encodeURIComponent(
-      taskId
-    )}&order=desc&limit=20`,
-    {
-      headers: manusHealthHeaders(),
-    }
-  )
+  const endpoint =
+    `task.listMessages?task_id=${encodeURIComponent(taskId)}` +
+    "&order=desc&limit=20";
 
-  const data = await response.json()
+  const data = await manusRequest(endpoint);
 
-  if (!response.ok || !data.ok) {
-    throw new Error(
-      data?.error?.message ?? "Failed to retrieve API health task"
-    )
+  if (!Array.isArray(data.messages)) {
+    throw new Error("Manus returned an invalid messages response.");
   }
 
-  const messages: any[] = data.messages ?? []
+  const structuredResult = data.messages.find((message: unknown) => {
+    return (
+      isRecord(message) &&
+      message.type === "structured_output_result"
+    );
+  });
 
-  const structuredResult = messages.find(
-    (message) => message.type === "structured_output_result"
-  )
-
-  if (!structuredResult) {
-    return null
+  if (!structuredResult || !isRecord(structuredResult)) {
+    return null;
   }
 
-  const result = structuredResult.structured_output_result
+  const result = structuredResult.structured_output_result;
 
-  if (!result.success) {
-    throw new Error(
-      result.error ?? "API health diagnosis failed"
-    )
+  if (!isRecord(result)) {
+    throw new Error("Manus returned an invalid structured result.");
   }
 
-  return result.value as ApiHealthDiagnosis
+ if (result.success !== true) {
+  throw new ApiHealthTaskFailedError(
+    "API health diagnosis failed.",
+  );
+}
+
+  return validateApiHealthDiagnosis(result.value);
 }
