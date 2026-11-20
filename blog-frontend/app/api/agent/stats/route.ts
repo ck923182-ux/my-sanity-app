@@ -1,3 +1,4 @@
+
 import { NextResponse } from "next/server";
 
 import { getRequestLogs } from "@/agent/store";
@@ -9,31 +10,49 @@ export async function GET() {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
-  const logs = getRequestLogs();
 
-  // Group requests by their resolved Next.js route and HTTP method.
-  const apiRoutes = Array.from(
-    new Map(
-      logs.map((log) => {
-        const path = resolveApiRoute(log.path) ?? log.path;
+  try {
+    const logs = getRequestLogs();
 
-        return [
-          `${log.method}:${path}`,
-          {
-            path,
-            method: log.method,
-          },
-        ] as const;
-      }),
-    ).values(),
-  );
+    // Group requests by their resolved Next.js route and HTTP method.
+    const apiRoutes = Array.from(
+      new Map(
+        logs.map((log) => {
+          const path = resolveApiRoute(log.path) ?? log.path;
 
-  const stats = apiRoutes
-    .map(({ path, method }) => analyzeApiHealth(path, method))
-    .filter((stat) => stat !== null);
+          return [
+            `${log.method}:${path}`,
+            {
+              path,
+              method: log.method,
+            },
+          ] as const;
+        }),
+      ).values(),
+    );
 
-  return NextResponse.json({
-    totalRequests: logs.length,
-    stats,
-  });
+    const stats = apiRoutes
+      .map(({ path, method }) => analyzeApiHealth(path, method))
+      .filter((stat) => stat !== null);
+
+    return NextResponse.json({
+      totalRequests: logs.length,
+      stats,
+    });
+  } catch (error) {
+    console.error("AGENT STATS API FAILED:", {
+      errorName:
+        error instanceof Error
+          ? error.name.slice(0, 100)
+          : "UnknownError",
+      message: "Unable to calculate API statistics.",
+    });
+
+    return NextResponse.json(
+      {
+        error: "Unable to calculate API statistics.",
+      },
+      { status: 500 },
+    );
+  }
 }

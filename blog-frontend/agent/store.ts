@@ -78,6 +78,13 @@ const trimLogs = db.prepare(`
   )
 `)
 
+const persistRequestLogTransaction = db.transaction(
+  (log: ApiRequestLog) => {
+    insertLog.run(toStoredLog(log));
+    trimLogs.run({ limit: MAX_LOGS });
+  }
+);
+
 const deleteExpiredReservations = db.prepare(`
   DELETE FROM api_request_reservations
   WHERE timestamp < ?
@@ -187,14 +194,13 @@ function fromStoredLog(row: StoredLog): ApiRequestLog {
 }
 
 export function addRequestLog(log: ApiRequestLog) {
-  insertLog.run(toStoredLog(log))
-  trimLogs.run({ limit: MAX_LOGS })
+  persistRequestLogTransaction.immediate(log);
 
   console.log("AGENT STORE: Request log persisted", {
     id: log.id,
     path: log.path,
     status: log.status,
-  })
+  });
 }
 
 export function getRequestLogs(): ApiRequestLog[] {
@@ -205,9 +211,13 @@ export function getRequestLogs(): ApiRequestLog[] {
   return rows.map(fromStoredLog)
 }
 
+const clearRequestLogsTransaction = db.transaction(() => {
+  db.exec("DELETE FROM api_request_logs");
+  db.exec("DELETE FROM api_request_reservations");
+});
+
 export function clearRequestLogs() {
-  db.exec("DELETE FROM api_request_logs")
-  db.exec("DELETE FROM api_request_reservations")
+  clearRequestLogsTransaction.immediate();
 }
 
 export function getRequestLogCount(): number {

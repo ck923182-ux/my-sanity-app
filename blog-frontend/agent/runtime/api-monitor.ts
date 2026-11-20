@@ -312,8 +312,6 @@ export async function monitorApi<T extends Response>(
       requestId,
     );
 
-    processMonitoringLog(log, request.url);
-
     // Preserve the original handler error.
     throw error;
   }

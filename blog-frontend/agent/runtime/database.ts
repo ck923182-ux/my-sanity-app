@@ -16,10 +16,12 @@ const globalForDatabase = globalThis as unknown as {
 function createDatabase(): Database.Database {
   const db = new Database(databasePath);
 
-  db.pragma("journal_mode = WAL");
-  db.pragma("busy_timeout = 5000");
+  try {
+    db.pragma("journal_mode = WAL");
 
-  db.exec(`
+    db.pragma("busy_timeout = 5000");
+
+    db.exec(`
     -- Existing API request monitoring
     CREATE TABLE IF NOT EXISTS api_request_logs (
       id TEXT PRIMARY KEY,
@@ -94,53 +96,63 @@ function createDatabase(): Database.Database {
     );
     `);
 
-  const migrationId = "2026-11-12-redact-raw-request-fingerprints";
+    const migrationId = "2026-11-12-redact-raw-request-fingerprints";
 
-  const runFingerprintMigration = db.transaction(() => {
-    const existingMigration = db
-      .prepare(
-        `SELECT migration_id
+    const runFingerprintMigration = db.transaction(() => {
+      const existingMigration = db
+        .prepare(
+          `SELECT migration_id
          FROM agent_history_migrations
          WHERE migration_id = ?`,
-      )
-      .get(migrationId);
+        )
+        .get(migrationId);
 
-    if (existingMigration) {
-      return;
-    }
+      if (existingMigration) {
+        return;
+      }
 
-    // Remove historical raw request data from stored fingerprints.
-    db.prepare(
-      `
+      // Remove historical raw request data from stored fingerprints.
+      db.prepare(
+        `
       UPDATE api_request_logs
       SET request_fingerprint = NULL
       WHERE request_fingerprint IS NOT NULL
     `,
-    ).run();
+      ).run();
 
-    // Reservations are temporary duplicate-detection records.
-    db.prepare(
-      `
+      // Reservations are temporary duplicate-detection records.
+      db.prepare(
+        `
       DELETE FROM api_request_reservations
     `,
-    ).run();
+      ).run();
 
-    db.prepare(
-      `
+      db.prepare(
+        `
       INSERT INTO agent_history_migrations (
         migration_id,
         completed_at
       )
       VALUES (?, ?)
     `,
-    ).run(migrationId, Date.now());
-  });
+      ).run(migrationId, Date.now());
+    });
 
-  runFingerprintMigration.immediate();
+    runFingerprintMigration.immediate();
 
-  return db;
+    return db;
+  } catch (error) {
+    try {
+      if (db.open) {
+        db.close();
+      }
+    } catch {
+      // Preserve the original database initialization error.
+    }
+
+    throw error;
+  }
 }
-
 export const db =
   globalForDatabase.__agentDatabase ??
   (globalForDatabase.__agentDatabase = createDatabase());

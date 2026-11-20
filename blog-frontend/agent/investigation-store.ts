@@ -1,4 +1,3 @@
-
 import type { SourceAnalysisDiagnosis } from "@/agent/ai/source-analysis-agent";
 import { db } from "@/agent/runtime/database";
 
@@ -55,18 +54,15 @@ function readInvestigationRow(
 
 function readAllInvestigations(): InvestigationHistoryRecord[] {
   const rows = db
-    .prepare(
-      "SELECT id, record_json FROM agent_investigations",
-    )
+    .prepare("SELECT id, record_json FROM agent_investigations")
     .all() as InvestigationRow[];
 
   return rows.map(readInvestigationRow);
 }
 
-function saveInvestigation(
-  investigation: InvestigationHistoryRecord,
-): void {
-  db.prepare(`
+function saveInvestigation(investigation: InvestigationHistoryRecord): void {
+  db.prepare(
+    `
     INSERT INTO agent_investigations (
       id,
       task_id,
@@ -82,7 +78,8 @@ function saveInvestigation(
       status = excluded.status,
       created_at = excluded.created_at,
       record_json = excluded.record_json
-  `).run(
+  `,
+  ).run(
     investigation.id,
     investigation.taskId ?? null,
     investigation.apiPath,
@@ -95,10 +92,12 @@ function saveInvestigation(
 export function addInvestigation(
   investigation: InvestigationHistoryRecord,
 ): InvestigationHistoryRecord {
-  return db.transaction(() => {
-    saveInvestigation(investigation);
+  return db
+    .transaction(() => {
+      saveInvestigation(investigation);
 
-    db.prepare(`
+      db.prepare(
+        `
       DELETE FROM agent_investigations
       WHERE id IN (
         SELECT id
@@ -106,27 +105,29 @@ export function addInvestigation(
         ORDER BY created_at DESC, id ASC
         LIMIT -1 OFFSET ?
       )
-    `).run(MAX_INVESTIGATIONS);
+    `,
+      ).run(MAX_INVESTIGATIONS);
 
-    return investigation;
-  })();
+      return investigation;
+    })
+    .immediate();
 }
 
 export function getInvestigations(): InvestigationHistoryRecord[] {
-  return readAllInvestigations().sort(
-    (a, b) => b.createdAt - a.createdAt,
-  );
+  return readAllInvestigations().sort((a, b) => b.createdAt - a.createdAt);
 }
 
 export function getInvestigationById(
   id: string,
 ): InvestigationHistoryRecord | undefined {
   const row = db
-    .prepare(`
+    .prepare(
+      `
       SELECT id, record_json
       FROM agent_investigations
       WHERE id = ?
-    `)
+    `,
+    )
     .get(id) as InvestigationRow | undefined;
 
   return row ? readInvestigationRow(row) : undefined;
@@ -136,22 +137,32 @@ export function updateInvestigation(
   id: string,
   updates: Partial<InvestigationHistoryRecord>,
 ): InvestigationHistoryRecord | null {
-  return db.transaction(() => {
-    const current = getInvestigationById(id);
+  return db
+    .transaction(() => {
+      const current = getInvestigationById(id);
 
-    if (!current) {
-      console.error("Investigation not found:", id);
-      return null;
-    }
+      if (!current) {
+        console.error("INVESTIGATION NOT FOUND:", {
+          investigationId: id,
+        });
+        return null;
+      }
 
-    const updated: InvestigationHistoryRecord = {
-      ...current,
-      ...updates,
-    };
+      const updated: InvestigationHistoryRecord = {
+        ...current,
+        status: updates.status ?? current.status,
+        ai: updates.ai === undefined ? current.ai : updates.ai,
+        error: updates.error === undefined ? current.error : updates.error,
+        sourceAnalysis:
+          updates.sourceAnalysis === undefined
+            ? current.sourceAnalysis
+            : updates.sourceAnalysis,
+      };
 
-    saveInvestigation(updated);
-    return updated;
-  })();
+      saveInvestigation(updated);
+      return updated;
+    })
+    .immediate();
 }
 
 export function clearInvestigations(): void {

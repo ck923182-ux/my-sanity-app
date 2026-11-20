@@ -145,7 +145,7 @@ export function updateIssueStatus(
 
     saveIssue(updated);
     return updated;
-  })();
+  }).immediate();
 }
 
 export function upsertIssue(input: {
@@ -244,7 +244,7 @@ export function upsertIssue(input: {
     `).run(MAX_ISSUES);
 
     return issue;
-  })();
+  }).immediate();
 }
 
 export function resolveIssue(
@@ -289,7 +289,7 @@ export function resolveIssueForInvestigation(
 
     saveIssue(updated);
     return updated;
-  })();
+  }).immediate();
 }
 
 export function updateIssueStatusForInvestigation(
@@ -341,5 +341,5 @@ if (
 
     saveIssue(updated);
     return updated;
-  })();
+  }).immediate();
 }
