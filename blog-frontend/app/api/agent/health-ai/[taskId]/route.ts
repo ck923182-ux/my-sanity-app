@@ -1,25 +1,76 @@
+
 import { NextResponse } from "next/server";
+
 import { ManusRequestError } from "@/agent/ai/manus-client";
+
 import {
   ApiHealthTaskFailedError,
   getApiHealthDiagnosis,
 } from "@/agent/ai/api-health-agent";
+
 import {
   getAiTaskById,
   saveAiDiagnosis,
   updateAiTaskStatus,
 } from "@/agent/ai-store";
-import { authorizeAdminApi } from "@/auth/guards";
 
-export async function GET(
+import {
+  authorizeAdminApi,
+  getCurrentSession,
+} from "@/auth/guards";
+
+import { consumeRateLimit } from "@/agent/runtime/rate-limiter";
+import { withApiMonitoring } from "@/agent/runtime/api-monitor";
+
+export const GET = withApiMonitoring(async (
   request: Request,
-  { params }: { params: Promise<{ taskId: string }> },
-) {
+  context?: unknown,
+) => {
+  const { params } = context as {
+    params: Promise<{ taskId: string }>;
+  };
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
 
   try {
+    const session = await getCurrentSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const rateLimit = consumeRateLimit(
+      session.user.id,
+      "health-ai-poll",
+      30,
+      60_000,
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
     const { taskId } = await params;
 
     if (
@@ -117,25 +168,25 @@ export async function GET(
       });
     }
 
-  if (error instanceof ManusRequestError) {
-  const { taskId } = await params;
+    if (error instanceof ManusRequestError) {
+      const { taskId } = await params;
 
-  const isTimeout = error.code === "TIMEOUT";
+      const isTimeout = error.code === "TIMEOUT";
 
-  return NextResponse.json(
-    {
-      success: false,
-      status: "pending",
-      taskId,
-      message: isTimeout
-        ? "Manus polling request timed out. Please retry."
-        : "Unable to retrieve the Manus task. Please retry.",
-    },
-    {
-      status: isTimeout ? 504 : 503,
-    },
-  );
-}
+      return NextResponse.json(
+        {
+          success: false,
+          status: "pending",
+          taskId,
+          message: isTimeout
+            ? "Manus polling request timed out. Please retry."
+            : "Unable to retrieve the Manus task. Please retry.",
+        },
+        {
+          status: isTimeout ? 504 : 503,
+        },
+      );
+    }
 
     console.error("Health AI diagnosis error:", {
       errorName:
@@ -151,4 +202,4 @@ export async function GET(
       { status: 500 },
     );
   }
-}
+});

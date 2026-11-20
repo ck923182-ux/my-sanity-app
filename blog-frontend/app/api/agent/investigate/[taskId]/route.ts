@@ -1,5 +1,10 @@
+
 import { NextResponse } from "next/server";
+
+import { ManusRequestError } from "@/agent/ai/manus-client";
+
 const MAX_INVESTIGATION_DURATION_MS = 10 * 60 * 1000;
+
 import {
   getSourceAnalysisDiagnosis,
   SourceAnalysisTaskFailedError,
@@ -15,7 +20,13 @@ import {
   updateIssueStatusForInvestigation,
 } from "@/agent/issue-store";
 
-import { authorizeAdminApi } from "@/auth/guards";
+import {
+  authorizeAdminApi,
+  getCurrentSession,
+} from "@/auth/guards";
+
+import { consumeRateLimit } from "@/agent/runtime/rate-limiter";
+import { withApiMonitoring } from "@/agent/runtime/api-monitor";
 
 type RouteContext = {
   params: Promise<{
@@ -23,12 +34,54 @@ type RouteContext = {
   }>;
 };
 
-export async function GET(_request: Request, context: RouteContext) {
+export const GET = withApiMonitoring(async (
+  _request: Request,
+  context?: unknown,
+) => {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
+
   try {
-    const { taskId } = await context.params;
+    const session = await getCurrentSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const rateLimit = consumeRateLimit(
+      session.user.id,
+      "investigate-poll",
+      30,
+      60_000,
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
+    const { params } = context as RouteContext;
+    const { taskId } = await params;
 
     if (
       typeof taskId !== "string" ||
@@ -58,8 +111,6 @@ export async function GET(_request: Request, context: RouteContext) {
       );
     }
 
-    // Prevent an older investigation from changing the lifecycle
-    // of an issue managed by a newer investigation.
     const linkedIssue = getIssueByInvestigationId(investigation.id);
 
     if (linkedIssue && linkedIssue.latestInvestigationId !== investigation.id) {
@@ -80,7 +131,6 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-    // Do not poll again after a terminal state has been recorded.
     if (investigation.status === "completed" && investigation.ai) {
       return NextResponse.json({
         success: true,
@@ -100,7 +150,6 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-        // Stop polling when the maximum investigation duration is reached.
     const investigationAge = Date.now() - investigation.createdAt;
 
     if (investigationAge >= MAX_INVESTIGATION_DURATION_MS) {
@@ -144,8 +193,6 @@ export async function GET(_request: Request, context: RouteContext) {
           error: error.message,
         });
 
-        // A failed diagnostic task does not mean the API
-        // itself has recovered.
         updateIssueStatusForInvestigation(investigation.id, "open");
 
         console.error("INVESTIGATION TASK FAILED:", {
@@ -164,8 +211,6 @@ export async function GET(_request: Request, context: RouteContext) {
         });
       }
 
-      // Network, timeout, and Manus API errors do not prove
-      // that the underlying task has failed.
       throw error;
     }
 
@@ -178,8 +223,6 @@ export async function GET(_request: Request, context: RouteContext) {
       });
     }
 
-    // Recheck before updating the investigation record because
-    // a newer investigation might have started during the await.
     const latestLinkedIssue = getIssueByInvestigationId(investigation.id);
 
     if (
@@ -219,9 +262,6 @@ export async function GET(_request: Request, context: RouteContext) {
       );
     }
 
-    // Diagnosis completion is not API recovery.
-    // Keep the issue investigating until runtime evidence
-    // independently confirms that the API has recovered.
     updateIssueStatusForInvestigation(investigation.id, "investigating");
 
     return NextResponse.json({
@@ -231,7 +271,22 @@ export async function GET(_request: Request, context: RouteContext) {
       ai: diagnosis,
     });
   } catch (error) {
+    if (error instanceof ManusRequestError) {
+      const isTimeout = error.code === "TIMEOUT";
+
+      return NextResponse.json(
+        {
+          success: false,
+          message: isTimeout
+            ? "Manus polling request timed out. Please retry."
+            : "Unable to retrieve the Manus task. Please retry.",
+        },
+        { status: isTimeout ? 504 : 503 },
+      );
+    }
+
     console.error("Investigation polling error:", error);
+
     return NextResponse.json(
       {
         success: false,
@@ -240,4 +295,4 @@ export async function GET(_request: Request, context: RouteContext) {
       { status: 500 },
     );
   }
-}
+});

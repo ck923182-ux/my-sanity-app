@@ -83,6 +83,17 @@ function createDatabase(): Database.Database {
       record_json TEXT NOT NULL
     );
 
+        -- Persistent API rate-limit buckets
+    CREATE TABLE IF NOT EXISTS agent_rate_limits (
+      bucket_key TEXT PRIMARY KEY,
+      window_started_at INTEGER NOT NULL,
+      request_count INTEGER NOT NULL CHECK (request_count >= 0),
+      expires_at INTEGER NOT NULL
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_agent_rate_limits_expires
+      ON agent_rate_limits(expires_at);
+
     CREATE INDEX IF NOT EXISTS idx_agent_investigations_task
       ON agent_investigations(task_id);
 

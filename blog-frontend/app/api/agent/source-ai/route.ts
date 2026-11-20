@@ -1,6 +1,8 @@
-
 import { NextResponse } from "next/server";
-import { authorizeAdminApi } from "@/auth/guards";
+import { authorizeAdminApi, getCurrentSession } from "@/auth/guards";
+import { consumeRateLimit } from "@/agent/runtime/rate-limiter";
+import { withApiMonitoring } from "@/agent/runtime/api-monitor";
+
 import { createSourceAnalysisTask } from "@/agent/ai/source-analysis-agent";
 import type { SourceAnalysisAiInput } from "@/agent/ai/source-analysis-prompt";
 
@@ -9,31 +11,30 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 }
 
 function isString(value: unknown, maxLength: number): value is string {
-  return typeof value === "string" &&
+  return (
+    typeof value === "string" &&
     value.trim().length > 0 &&
-    value.length <= maxLength;
+    value.length <= maxLength
+  );
 }
 
-function isNumber(
-  value: unknown,
-  min: number,
-  max: number,
-): value is number {
-  return typeof value === "number" &&
+function isNumber(value: unknown, min: number, max: number): value is number {
+  return (
+    typeof value === "number" &&
     Number.isFinite(value) &&
     value >= min &&
-    value <= max;
+    value <= max
+  );
 }
 
 function isSourceLines(value: unknown): value is number[] {
-  return Array.isArray(value) &&
+  return (
+    Array.isArray(value) &&
     value.length <= 200 &&
     value.every(
-      (line) =>
-        Number.isInteger(line) &&
-        line > 0 &&
-        line <= 1_000_000,
-    );
+      (line) => Number.isInteger(line) && line > 0 && line <= 1_000_000,
+    )
+  );
 }
 
 function isValidApiPath(value: unknown): value is string {
@@ -65,73 +66,69 @@ function isValidInput(body: unknown): body is SourceAnalysisAiInput {
     return false;
   }
 
-  const { runtime, bottleneck, rootCause, developerRecommendation, sourceContext } = body;
+  const {
+    runtime,
+    bottleneck,
+    rootCause,
+    developerRecommendation,
+    sourceContext,
+  } = body;
 
   if (
     runtime !== null &&
-    (
-      !isRecord(runtime) ||
+    (!isRecord(runtime) ||
       !isNumber(runtime.duration, 0, 3_600_000) ||
       !Number.isInteger(runtime.status) ||
-      !isNumber(runtime.status, 100, 599)
-    )
+      !isNumber(runtime.status, 100, 599))
   ) {
     return false;
   }
 
   if (
     bottleneck !== null &&
-    (
-      !isRecord(bottleneck) ||
+    (!isRecord(bottleneck) ||
       !isString(bottleneck.name, 200) ||
       !isNumber(bottleneck.duration, 0, 3_600_000) ||
-      !isNumber(bottleneck.percentage, 0, 100)
-    )
+      !isNumber(bottleneck.percentage, 0, 100))
   ) {
     return false;
   }
 
   if (
     rootCause !== null &&
-    (
-      !isRecord(rootCause) ||
+    (!isRecord(rootCause) ||
       !isString(rootCause.likelyCause, 2000) ||
       !isString(rootCause.explanation, 4000) ||
       !isNumber(rootCause.duration, 0, 3_600_000) ||
       !isNumber(rootCause.bottleneckDuration, 0, 3_600_000) ||
-      !isSourceLines(rootCause.sourceLines)
-    )
+      !isSourceLines(rootCause.sourceLines))
   ) {
     return false;
   }
 
   if (
     developerRecommendation !== null &&
-    (
-      !isRecord(developerRecommendation) ||
+    (!isRecord(developerRecommendation) ||
       !["high", "medium", "low"].includes(
         String(developerRecommendation.priority),
       ) ||
       !isString(developerRecommendation.title, 200) ||
       !isString(developerRecommendation.recommendation, 4000) ||
       !isString(developerRecommendation.reason, 2000) ||
-      !isSourceLines(developerRecommendation.sourceLines)
-    )
+      !isSourceLines(developerRecommendation.sourceLines))
   ) {
     return false;
   }
 
   if (
     sourceContext !== null &&
-    (
-      !isRecord(sourceContext) ||
+    (!isRecord(sourceContext) ||
       !Number.isInteger(sourceContext.startLine) ||
       !Number.isInteger(sourceContext.endLine) ||
       !isNumber(sourceContext.startLine, 1, 1_000_000) ||
       !isNumber(sourceContext.endLine, 1, 1_000_000) ||
       sourceContext.endLine < sourceContext.startLine ||
-      !isString(sourceContext.code, 20_000)
-    )
+      !isString(sourceContext.code, 20_000))
   ) {
     return false;
   }
@@ -145,12 +142,44 @@ function isValidInput(body: unknown): body is SourceAnalysisAiInput {
   );
 }
 
-export async function POST(request: Request) {
+export const POST = withApiMonitoring(async (request: Request) => {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
 
   try {
+    const session = await getCurrentSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const rateLimit = consumeRateLimit(session.user.id, "source-ai", 5, 60_000);
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
     const body: unknown = await request.json().catch(() => null);
 
     if (!isValidInput(body)) {
@@ -182,4 +211,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});

@@ -1,26 +1,65 @@
+
 import { NextResponse } from "next/server";
 
 import { getRequestLogs } from "@/agent/store";
 import { analyzeApiHealth } from "@/agent/analyzer/health-analyzer";
 
 import { createApiHealthTask } from "@/agent/ai/api-health-agent";
-import { authorizeAdminApi } from "@/auth/guards";
+import {
+  authorizeAdminApi,
+  getCurrentSession,
+} from "@/auth/guards";
 
 import { getAiDiagnosis, saveAiTask } from "@/agent/ai-store";
+import { consumeRateLimit } from "@/agent/runtime/rate-limiter";
+import { withApiMonitoring } from "@/agent/runtime/api-monitor";
 
 import type { ApiStats } from "@/agent/types";
 
-export async function GET() {
+export const GET = withApiMonitoring(async () => {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
 
   try {
-    const logs = getRequestLogs();
+    const session = await getCurrentSession();
 
-    // --------------------------------
-    // Analyze each API separately
-    // --------------------------------
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const rateLimit = consumeRateLimit(
+      session.user.id,
+      "health-ai",
+      5,
+      60_000,
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
+    const logs = getRequestLogs();
 
     const apiKeys = Array.from(
       new Set(logs.map((log) => `${log.method}:${log.path}`)),
@@ -39,10 +78,6 @@ export async function GET() {
         (result): result is NonNullable<typeof result> => result !== null,
       );
 
-    // --------------------------------
-    // Find problematic API
-    // --------------------------------
-
     const problematicApi = stats.find(
       (api) => api.health === "warning" || api.health === "critical",
     );
@@ -55,35 +90,22 @@ export async function GET() {
       });
     }
 
-    // --------------------------------
-    // Convert analyzer result to ApiStats
-    // --------------------------------
-
     const apiStats: ApiStats = {
       path: problematicApi.path,
       method: problematicApi.method,
       health: problematicApi.health,
-
       totalCalls: problematicApi.totalCalls,
       successCalls: problematicApi.successCalls,
       errorCalls: problematicApi.errorCalls,
-
       averageDuration: problematicApi.averageDuration,
       maxDuration: problematicApi.maxDuration,
-
       errorRate: problematicApi.errorRate,
       duplicateCalls: problematicApi.duplicateCalls,
-
       issues: problematicApi.issues.map((issue) => issue.message),
     };
 
-    // --------------------------------
-    // Check for existing AI diagnosis
-    // --------------------------------
-
     const existing = getAiDiagnosis(apiStats);
 
-    // Existing completed diagnosis
     if (existing?.status === "completed" && existing.diagnosis) {
       return NextResponse.json({
         success: true,
@@ -95,7 +117,6 @@ export async function GET() {
       });
     }
 
-    // Existing task is still pending
     if (existing?.status === "pending") {
       return NextResponse.json({
         success: true,
@@ -106,13 +127,6 @@ export async function GET() {
         diagnosis: null,
       });
     }
-
-    // Failed or timed-out tasks fall through.
-    // A new AI task will be created below.
-
-    // --------------------------------
-    // No existing task → create one
-    // --------------------------------
 
     const { taskId } = await createApiHealthTask(apiStats);
 
@@ -137,4 +151,4 @@ export async function GET() {
       { status: 500 },
     );
   }
-}
+});

@@ -1,7 +1,15 @@
+
 import { NextResponse } from "next/server";
 import fs from "fs";
 import path from "path";
-import { authorizeAdminApi } from "@/auth/guards";
+
+import {
+  authorizeAdminApi,
+  getCurrentSession,
+} from "@/auth/guards";
+
+import { consumeRateLimit } from "@/agent/runtime/rate-limiter";
+import { withApiMonitoring } from "@/agent/runtime/api-monitor";
 
 function apiPathToRouteCandidates(apiPath: string): string[] {
   if (
@@ -60,11 +68,49 @@ function apiPathToRouteCandidates(apiPath: string): string[] {
   return [...new Set(candidates)];
 }
 
-export async function GET(request: Request) {
+export const GET = withApiMonitoring(async (request: Request) => {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
+
   try {
+    const session = await getCurrentSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const rateLimit = consumeRateLimit(
+      session.user.id,
+      "source-scan",
+      10,
+      60_000,
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
     const { searchParams } = new URL(request.url);
     const apiPath = searchParams.get("path");
 
@@ -138,4 +184,4 @@ export async function GET(request: Request) {
       { status: 500 },
     );
   }
-}
+});

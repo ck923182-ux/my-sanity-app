@@ -2,16 +2,60 @@
 import { NextResponse } from "next/server";
 
 import { createInvestigation } from "@/agent/investigation-service";
-import { authorizeAdminApi } from "@/auth/guards";
+
+import {
+  authorizeAdminApi,
+  getCurrentSession,
+} from "@/auth/guards";
+
+import { consumeRateLimit } from "@/agent/runtime/rate-limiter";
+import { withApiMonitoring } from "@/agent/runtime/api-monitor";
 
 const API_PATH_REGEX = /^\/api\/[a-zA-Z0-9/_-]+$/;
 
-export async function POST(request: Request) {
+export const POST = withApiMonitoring(async (request: Request) => {
   const authError = await authorizeAdminApi();
 
   if (authError) return authError;
 
   try {
+    const session = await getCurrentSession();
+
+    if (!session) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Authentication required.",
+        },
+        { status: 401 },
+      );
+    }
+
+    const rateLimit = consumeRateLimit(
+      session.user.id,
+      "investigate",
+      5,
+      60_000,
+    );
+
+    if (!rateLimit.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "Rate limit exceeded. Please try again later.",
+          retryAfter: rateLimit.retryAfter,
+        },
+        {
+          status: 429,
+          headers: {
+            "Retry-After": String(rateLimit.retryAfter),
+            "X-RateLimit-Limit": String(rateLimit.limit),
+            "X-RateLimit-Remaining": "0",
+          },
+        },
+      );
+    }
+
     let body: unknown;
 
     try {
@@ -94,4 +138,4 @@ export async function POST(request: Request) {
       { status: 500 },
     );
   }
-}
+});
